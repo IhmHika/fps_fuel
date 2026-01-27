@@ -6,8 +6,9 @@ import { NetworkManager } from './NetworkManager.js';
 window.onerror = function (msg, url, lineNo, columnNo, error) {
     const display = document.getElementById('error-display');
     if (display) {
-        display.innerHTML += `<div>Error: ${msg} at ${lineNo}:${columnNo}</div>`;
+        display.innerHTML += `<div style="padding:5px; border-bottom:1px solid red;">[Error] ${msg}<br><small>${url} (L${lineNo}:C${columnNo})</small></div>`;
     }
+    console.error(error);
     return false;
 };
 
@@ -30,78 +31,87 @@ const targetIdInput = document.getElementById('target-id-input');
 let targets = [];
 
 function init() {
-    console.log("Initializing Three.js scene...");
+    console.log("FPS Game Initializing...");
     try {
         // シーンの作成
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x111122); // 少し青みがかった背景
+        scene.background = new THREE.Color(0x050510); // 深い紺色
 
         clock = new THREE.Clock();
 
         // カメラの作成
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 1.7, 5);
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.set(0, 5, 15); // 最初は少し高く設定
         scene.add(camera);
 
         // レンダラーの作成
-        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            powerPreference: "high-performance"
+        });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
-        document.getElementById('game-container').appendChild(renderer.domElement);
+        renderer.setClearColor(0x111122); // 万が一シーンが表示されなくても色が出るように
+
+        const container = document.getElementById('game-container');
+        if (!container) throw new Error("game-container not found!");
+        container.appendChild(renderer.domElement);
 
         // 照明
         const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
         scene.add(ambientLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        directionalLight.position.set(5, 10, 7.5);
-        scene.add(directionalLight);
+        const sunLight = new THREE.DirectionalLight(0xffffff, 2.0);
+        sunLight.position.set(10, 20, 10);
+        scene.add(sunLight);
 
-        // 仮の地面
-        const floorGeometry = new THREE.PlaneGeometry(200, 200);
-        const floorMaterial = new THREE.MeshStandardMaterial({
-            color: 0x1a1a1c,
-            roughness: 0.8,
-            metalness: 0.2
+        // 地面 (巨大化)
+        const floorGeo = new THREE.PlaneGeometry(1000, 1000);
+        const floorMat = new THREE.MeshStandardMaterial({
+            color: 0x111111,
+            metalness: 0.1,
+            roughness: 0.8
         });
-        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
         scene.add(floor);
 
-        // グリッド
-        const grid = new THREE.GridHelper(200, 50, 0x00f2ff, 0x222222);
-        grid.position.y = 0.01;
+        // グリッド (目立つように)
+        const grid = new THREE.GridHelper(100, 20, 0x00ffff, 0x444444);
+        grid.position.y = 0.05;
         scene.add(grid);
 
-        // テスト用ボックス
-        const testBox = new THREE.Mesh(
-            new THREE.BoxGeometry(2, 2, 2),
+        // 確実に目立つテストオブジェクト (超巨大な赤いキューブ)
+        const testCube = new THREE.Mesh(
+            new THREE.BoxGeometry(5, 5, 5),
             new THREE.MeshBasicMaterial({ color: 0xff0000 })
         );
-        testBox.name = "testBox";
-        testBox.position.set(0, 1, -5);
-        scene.add(testBox);
+        testCube.position.set(0, 2.5, -20);
+        testCube.name = "testCube";
+        scene.add(testCube);
 
-        // 障害物の追加
-        addObstacle(10, 2, -10, 10, 4, 2);
-        addObstacle(-10, 1, 0, 5, 2, 5);
+        // 障害物
+        addObstacle(0, 2, -10, 10, 4, 3);
 
-        // プレイヤーとネットワーク
+        // プレイヤーと通信の準備
         player = new Player(camera, renderer.domElement, scene);
         network = new NetworkManager(scene, player);
         player.network = network;
 
         window.addEventListener('resize', onWindowResize, false);
+
+        console.log("Start animate loop");
         animate();
-    } catch (e) {
-        console.error("Init failed:", e);
-        document.getElementById('error-display').innerHTML += `<div>Init error: ${e.message}</div>`;
+    } catch (err) {
+        console.error("Init Error:", err);
+        const display = document.getElementById('error-display');
+        if (display) display.innerHTML += `<div style="color:yellow;">Init Failed: ${err.message}</div>`;
     }
 }
 
 function addObstacle(x, y, z, sx, sy, sz) {
     const geo = new THREE.BoxGeometry(sx, sy, sz);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5 });
+    const mat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x, y, z);
     scene.add(mesh);
@@ -117,38 +127,32 @@ function animate() {
     requestAnimationFrame(animate);
 
     const delta = clock.getDelta();
-    if (isGameStarted) {
+
+    // ゲームが始まっていれば物理更新
+    if (isGameStarted && player) {
         player.update(delta);
     }
 
-    // テストボックスを回転させる
-    const box = scene.getObjectByName("testBox");
-    if (box) box.rotation.y += 0.01;
+    // テストオブジェクトの回転
+    const cube = scene.getObjectByName("testCube");
+    if (cube) cube.rotation.y += 0.02;
 
     renderer.render(scene, camera);
 }
 
 // UIイベント
 btnCreate.onclick = () => {
-    const myId = myNameInput.value;
-    statusMsg.innerText = "Connecting...";
-    network.createRoom(myId, (id) => {
-        statusMsg.innerText = `Room Created! ID: ${id}`;
-    });
     startGame();
+    network.createRoom(myNameInput.value, (id) => {
+        statusMsg.innerText = `ID: ${id}`;
+    });
 };
 
 btnJoin.onclick = () => {
-    const myId = myNameInput.value + "_join" + Math.floor(Math.random() * 1000);
-    const targetId = targetIdInput.value;
-    if (!targetId) {
-        statusMsg.innerText = "Enter Join ID";
-        return;
-    }
-    statusMsg.innerText = "Joining...";
-    network.joinRoom(myId, targetId, () => {
-        statusMsg.innerText = "Connected!";
-        startGame();
+    if (!targetIdInput.value) return (statusMsg.innerText = "Enter ID");
+    startGame();
+    network.joinRoom(myNameInput.value + "_join", targetIdInput.value, () => {
+        statusMsg.innerText = "Joined!";
     });
 };
 
@@ -159,24 +163,26 @@ btnPractice.onclick = () => {
 };
 
 btnRandom.onclick = () => {
-    const randomLobbyId = "APEX_FPS_RANDOM_LOBBY";
-    const myId = myNameInput.value + "_match_" + Math.floor(Math.random() * 1000);
-    statusMsg.innerText = "Matching...";
-    network.joinRoom(myId, randomLobbyId, () => {
-        startGame();
+    startGame();
+    // 簡易的なランダム接続ロジック
+    const lobbyId = "APEX_LOBBY_GLOBAL";
+    network.joinRoom(myNameInput.value + "_m", lobbyId, () => {
+        statusMsg.innerText = "Matched!";
     });
     setTimeout(() => {
-        if (!isGameStarted) {
-            network.createRoom(randomLobbyId, () => startGame());
+        if (network.conn === null) {
+            network.createRoom(lobbyId, (id) => {
+                statusMsg.innerText = "Waiting for players...";
+            });
         }
-    }, 4000);
+    }, 3000);
 };
 
 function addPracticeTargets() {
     for (let i = 0; i < 5; i++) {
-        const x = (Math.random() - 0.5) * 30;
-        const z = -15 - Math.random() * 15;
-        addTarget(x, 1, z);
+        const x = (Math.random() - 0.5) * 40;
+        const z = -30 - Math.random() * 20;
+        addTarget(x, 2, z);
     }
 }
 
@@ -194,9 +200,11 @@ function startGame() {
     menu.style.display = 'none';
     hud.style.display = 'block';
     isGameStarted = true;
+    // ユーザーインタラクション後にのみロックが可能
     if (player && player.controls) {
         player.controls.lock();
     }
 }
 
-init();
+// ページ読み込み完了時に初期化
+window.addEventListener('load', init);

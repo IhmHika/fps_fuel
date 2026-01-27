@@ -5,6 +5,10 @@
     --text-white: #e0e0e0;
 }
 
+* {
+    box-sizing: border-box;
+}
+
 body,
 html {
     margin: 0;
@@ -20,6 +24,14 @@ html {
 #game-container {
     width: 100vw;
     height: 100vh;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+#game-container canvas {
+    display: block;
 }
 
 #ui-layer {
@@ -32,6 +44,7 @@ html {
     display: flex;
     justify-content: center;
     align-items: center;
+    z-index: 10;
 }
 
 .glass {
