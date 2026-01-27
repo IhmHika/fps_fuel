@@ -15,21 +15,18 @@ window.onerror = (msg, url, line) => {
     return false;
 };
 
-// --- Shortcut Interference Prevention ---
 window.addEventListener('keydown', (e) => {
     // Specifically block common browser shortcuts during matches
-    const blockedCodes = ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyR', 'KeyF', 'KeyT', 'KeyN', 'KeyP', 'KeyS'];
-    if (e.ctrlKey && (blockedCodes.includes(e.code) || e.code === 'KeyW')) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-    // Block Alt+D, Alt+Enter etc if needed
-    if (e.altKey || e.metaKey) {
-        // Option to block OS level but limited in browser
-    }
-    // Block help/refresh
-    if (e.code === 'F1' || e.code === 'F5' || e.code === 'F11') {
-        if (!e.ctrlKey) e.preventDefault();
+    if (isGameStarted || e.ctrlKey) {
+        const blockedCodes = ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyR', 'KeyF', 'KeyT', 'KeyN', 'KeyP', 'KeyS', 'KeyH'];
+        if (e.ctrlKey && blockedCodes.includes(e.code)) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        // Block alone F1, F3, F5
+        if (['F1', 'F3', 'F5'].includes(e.code) && !e.ctrlKey) {
+            e.preventDefault();
+        }
     }
 }, { capture: true });
 
@@ -270,9 +267,12 @@ function startSession() {
     if (player.controls) player.controls.lock();
 }
 
-window.onbeforeunload = () => {
-    if (isGameStarted) return "対戦中にページを離れますか？";
-};
+window.addEventListener('beforeunload', (event) => {
+    if (isGameStarted) {
+        event.preventDefault();
+        event.returnValue = ''; // Chrome require this
+    }
+});
 
 function addPracticeTargets() {
     for (let i = 0; i < 12; i++) {

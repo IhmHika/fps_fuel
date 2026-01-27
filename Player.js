@@ -80,7 +80,8 @@ export class Player {
         document.addEventListener('keydown', (e) => this.onKey(e, true));
         document.addEventListener('keyup', (e) => this.onKey(e, false));
 
-        document.addEventListener('mousedown', () => {
+        // Only lock when clicking on the actual canvas, and only if session is active
+        this.controls.domElement.addEventListener('mousedown', (e) => {
             if (this.controls.isLocked) {
                 this.shoot();
             } else if (this.isActive) {
