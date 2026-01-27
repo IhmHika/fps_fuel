@@ -2,122 +2,85 @@ import * as THREE from 'three';
 import { Player } from './Player.js';
 import { NetworkManager } from './NetworkManager.js';
 
-// エラーログの表示
-window.onerror = function (msg, url, lineNo, columnNo, error) {
+// Global error display
+const reportError = (msg) => {
     const display = document.getElementById('error-display');
     if (display) {
-        display.innerHTML += `<div style="padding:5px; border-bottom:1px solid red;">[Error] ${msg}<br><small>${url} (L${lineNo}:C${columnNo})</small></div>`;
+        display.innerHTML += `<div style="padding:4px; border-bottom:1px solid #722;">[Script] ${msg}</div>`;
     }
-    console.error(error);
+};
+
+window.onerror = (msg, url, line) => {
+    reportError(`${msg} (${url}:${line})`);
     return false;
 };
 
-// 基本変数の定義
 let scene, camera, renderer, clock;
 let player, network;
 let isGameStarted = false;
 
-// DOM要素
-const menu = document.getElementById('menu');
-const hud = document.getElementById('hud');
-const statusMsg = document.getElementById('status-msg');
-const btnCreate = document.getElementById('btn-create-room');
-const btnJoin = document.getElementById('btn-join-room');
-const btnPractice = document.getElementById('btn-practice');
-const btnRandom = document.getElementById('btn-random-match');
-const myNameInput = document.getElementById('peer-id-input');
-const targetIdInput = document.getElementById('target-id-input');
-
-let targets = [];
-
 function init() {
-    console.log("FPS Game Initializing...");
+    console.log("Initializing Game...");
+
     try {
-        // シーンの作成
+        const container = document.getElementById('game-container');
+        if (!container) throw new Error("Canvas container not found");
+
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x050510); // 深い紺色
+        scene.background = new THREE.Color(0x0a0a14);
+
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 1.7, 10);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
 
         clock = new THREE.Clock();
 
-        // カメラの作成
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-        camera.position.set(0, 5, 15); // 最初は少し高く設定
-        scene.add(camera);
+        // Basic Light
+        const ambient = new THREE.AmbientLight(0xffffff, 1.0);
+        scene.add(ambient);
 
-        // レンダラーの作成
-        renderer = new THREE.WebGLRenderer({
-            antialias: true,
-            powerPreference: "high-performance"
-        });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setClearColor(0x111122); // 万が一シーンが表示されなくても色が出るように
+        const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+        sun.position.set(5, 10, 7.5);
+        scene.add(sun);
 
-        const container = document.getElementById('game-container');
-        if (!container) throw new Error("game-container not found!");
-        container.appendChild(renderer.domElement);
+        // Ground
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(100, 100),
+            new THREE.MeshStandardMaterial({ color: 0x222222 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
 
-        // 照明
-        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
-        scene.add(ambientLight);
-
-        const sunLight = new THREE.DirectionalLight(0xffffff, 2.0);
-        sunLight.position.set(10, 20, 10);
-        scene.add(sunLight);
-
-        // 地面 (巨大化)
-        const floorGeo = new THREE.PlaneGeometry(1000, 1000);
-        const floorMat = new THREE.MeshStandardMaterial({
-            color: 0x111111,
-            metalness: 0.1,
-            roughness: 0.8
-        });
-        const floor = new THREE.Mesh(floorGeo, floorMat);
-        floor.rotation.x = -Math.PI / 2;
-        scene.add(floor);
-
-        // グリッド (目立つように)
-        const grid = new THREE.GridHelper(100, 20, 0x00ffff, 0x444444);
-        grid.position.y = 0.05;
-        scene.add(grid);
-
-        // 確実に目立つテストオブジェクト (超巨大な赤いキューブ)
-        const testCube = new THREE.Mesh(
-            new THREE.BoxGeometry(5, 5, 5),
+        // Test Box at Center
+        const box = new THREE.Mesh(
+            new THREE.BoxGeometry(2, 2, 2),
             new THREE.MeshBasicMaterial({ color: 0xff0000 })
         );
-        testCube.position.set(0, 2.5, -20);
-        testCube.name = "testCube";
-        scene.add(testCube);
+        box.position.set(0, 1, 0);
+        box.name = "test_target";
+        scene.add(box);
 
-        // 障害物
-        addObstacle(0, 2, -10, 10, 4, 3);
-
-        // プレイヤーと通信の準備
+        // Components
         player = new Player(camera, renderer.domElement, scene);
         network = new NetworkManager(scene, player);
         player.network = network;
 
-        window.addEventListener('resize', onWindowResize, false);
+        window.addEventListener('resize', onWindowResize);
 
-        console.log("Start animate loop");
         animate();
-    } catch (err) {
-        console.error("Init Error:", err);
-        const display = document.getElementById('error-display');
-        if (display) display.innerHTML += `<div style="color:yellow;">Init Failed: ${err.message}</div>`;
+        console.log("Game Loaded Successfully");
+    } catch (e) {
+        reportError("Init Fail: " + e.message);
+        console.error(e);
     }
 }
 
-function addObstacle(x, y, z, sx, sy, sz) {
-    const geo = new THREE.BoxGeometry(sx, sy, sz);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(x, y, z);
-    scene.add(mesh);
-}
-
 function onWindowResize() {
+    if (!camera || !renderer) return;
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -125,86 +88,39 @@ function onWindowResize() {
 
 function animate() {
     requestAnimationFrame(animate);
-
     const delta = clock.getDelta();
 
-    // ゲームが始まっていれば物理更新
     if (isGameStarted && player) {
         player.update(delta);
     }
 
-    // テストオブジェクトの回転
-    const cube = scene.getObjectByName("testCube");
-    if (cube) cube.rotation.y += 0.02;
+    const testTarget = scene.getObjectByName("test_target");
+    if (testTarget) testTarget.rotation.y += 0.01;
 
     renderer.render(scene, camera);
 }
 
-// UIイベント
-btnCreate.onclick = () => {
-    startGame();
-    network.createRoom(myNameInput.value, (id) => {
-        statusMsg.innerText = `ID: ${id}`;
-    });
-};
-
-btnJoin.onclick = () => {
-    if (!targetIdInput.value) return (statusMsg.innerText = "Enter ID");
-    startGame();
-    network.joinRoom(myNameInput.value + "_join", targetIdInput.value, () => {
-        statusMsg.innerText = "Joined!";
-    });
-};
-
-btnPractice.onclick = () => {
-    startGame();
-    addPracticeTargets();
-    statusMsg.innerText = "Practice Mode";
-};
-
-btnRandom.onclick = () => {
-    startGame();
-    // 簡易的なランダム接続ロジック
-    const lobbyId = "APEX_LOBBY_GLOBAL";
-    network.joinRoom(myNameInput.value + "_m", lobbyId, () => {
-        statusMsg.innerText = "Matched!";
-    });
-    setTimeout(() => {
-        if (network.conn === null) {
-            network.createRoom(lobbyId, (id) => {
-                statusMsg.innerText = "Waiting for players...";
-            });
-        }
-    }, 3000);
-};
-
-function addPracticeTargets() {
-    for (let i = 0; i < 5; i++) {
-        const x = (Math.random() - 0.5) * 40;
-        const z = -30 - Math.random() * 20;
-        addTarget(x, 2, z);
-    }
-}
-
-function addTarget(x, y, z) {
-    const geo = new THREE.CylinderGeometry(0.5, 0.5, 2, 8);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffaa00 });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(x, y, z);
-    mesh.userData.isTarget = true;
-    mesh.userData.health = 100;
-    scene.add(mesh);
-}
-
-function startGame() {
-    menu.style.display = 'none';
-    hud.style.display = 'block';
+// UI Setup
+document.getElementById('btn-practice').onclick = () => {
     isGameStarted = true;
-    // ユーザーインタラクション後にのみロックが可能
-    if (player && player.controls) {
-        player.controls.lock();
-    }
-}
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('hud').style.display = 'block';
+    if (player && player.controls) player.controls.lock();
 
-// ページ読み込み完了時に初期化
-window.addEventListener('load', init);
+    // Add practice targets
+    for (let i = 0; i < 5; i++) {
+        const target = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.5, 0.5, 2),
+            new THREE.MeshStandardMaterial({ color: 0xffaa00 })
+        );
+        target.position.set((Math.random() - 0.5) * 20, 1, -10 - Math.random() * 10);
+        target.userData.isTarget = true;
+        target.userData.health = 100;
+        scene.add(target);
+    }
+};
+
+// ... other buttons simplified or skipped for immediate test
+document.getElementById('btn-random-match').onclick = () => reportError("Matching not ready, use Practice");
+
+init();
