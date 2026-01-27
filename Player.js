@@ -15,128 +15,118 @@ export class Player {
         this.gravity = 30.0;
         this.friction = 8.0;
 
-        // 状態フラグ
+        // 状態
         this.onGround = false;
-        this.isSliding = false;
-        this.slideTimer = 0;
-        this.canWallJump = false;
-        this.wallNormal = new THREE.Vector3();
+        this.keys = { forward: false, backward: false, left: false, right: false, jump: false, crouch: false, shoot: false };
+        this.network = null;
 
-        // 入力
-        this.keys = {
-            forward: false,
-            backward: false,
-            left: false,
-            right: false,
-            jump: false,
-            crouch: false,
-            shoot: false
-        };
+        // 銃の作成 (簡易メッシュ)
+        this.gun = null;
+        this.initGun();
 
-        this.lastShootTime = 0;
-        this.shootInterval = 0.2; // 秒
-        this.network = null; // 後でセット
+        // オーディオ
+        this.audioCtx = null;
 
         this.initEventListeners();
     }
 
-    initEventListeners() {
-        document.addEventListener('keydown', (e) => this.onKeyDown(e));
-        document.addEventListener('keyup', (e) => this.onKeyUp(e));
+    initGun() {
+        const gunGroup = new THREE.Group();
 
-        document.addEventListener('mouseup', () => this.keys.shoot = false);
-        document.addEventListener('mousedown', (e) => {
+        // 銃身
+        const bodyGeo = new THREE.BoxGeometry(0.2, 0.2, 0.6);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8, roughness: 0.2 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+
+        // 持ち手
+        const gripGeo = new THREE.BoxGeometry(0.15, 0.3, 0.15);
+        const grip = new THREE.Mesh(gripGeo, bodyMat);
+        grip.position.set(0, -0.2, 0.2);
+
+        gunGroup.add(body);
+        gunGroup.add(grip);
+
+        // カメラの子要素にする (FPS視点)
+        this.scene.add(gunGroup); // シーンに直接追加してupdateで追従させるか、カメラの子にする
+        this.gun = gunGroup;
+    }
+
+    initEventListeners() {
+        document.addEventListener('keydown', (e) => this.onKey(e, true));
+        document.addEventListener('keyup', (e) => this.onKey(e, false));
+        document.addEventListener('mousedown', () => {
             if (this.controls.isLocked) {
                 this.keys.shoot = true;
+                this.shoot();
             } else {
                 this.controls.lock();
             }
         });
+        document.addEventListener('mouseup', () => this.keys.shoot = false);
+
+        // Audio Context はユーザー操作後に初期化
+        document.addEventListener('click', () => {
+            if (!this.audioCtx) {
+                this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }, { once: true });
     }
 
-    onKeyDown(event) {
-        switch (event.code) {
-            case 'KeyW': this.keys.forward = true; break;
-            case 'KeyS': this.keys.backward = true; break;
-            case 'KeyA': this.keys.left = true; break;
-            case 'KeyD': this.keys.right = true; break;
-            case 'Space': this.keys.jump = true; break;
-            case 'ControlLeft': this.keys.crouch = true; break;
-        }
-    }
-
-    onKeyUp(event) {
-        switch (event.code) {
-            case 'KeyW': this.keys.forward = false; break;
-            case 'KeyS': this.keys.backward = false; break;
-            case 'KeyA': this.keys.left = false; break;
-            case 'KeyD': this.keys.right = false; break;
-            case 'Space': this.keys.jump = false; break;
-            case 'ControlLeft': this.keys.crouch = false; break;
+    onKey(e, val) {
+        switch (e.code) {
+            case 'KeyW': this.keys.forward = val; break;
+            case 'KeyS': this.keys.backward = val; break;
+            case 'KeyA': this.keys.left = val; break;
+            case 'KeyD': this.keys.right = val; break;
+            case 'Space': this.keys.jump = val; break;
+            case 'ControlLeft': this.keys.crouch = val; break;
         }
     }
 
     update(delta) {
         if (!this.controls.isLocked) return;
 
-        // 重力の適用
+        // 銃の位置更新 (カメラに追従)
+        if (this.gun) {
+            const gunOffset = new THREE.Vector3(0.3, -0.3, -0.6); // 右下前方に配置
+            gunOffset.applyQuaternion(this.camera.quaternion);
+            this.gun.position.copy(this.camera.position).add(gunOffset);
+            this.gun.quaternion.copy(this.camera.quaternion);
+        }
+
+        // 基本物理
         this.velocity.y -= this.gravity * delta;
 
-        // 移動方向の計算
-        this.direction.z = Number(this.keys.forward) - Number(this.keys.backward);
-        this.direction.x = Number(this.keys.right) - Number(this.keys.left);
-        this.direction.normalize();
+        const moveDir = new THREE.Vector3();
+        moveDir.z = Number(this.keys.forward) - Number(this.keys.backward);
+        moveDir.x = Number(this.keys.right) - Number(this.keys.left);
+        moveDir.normalize();
 
-        // 平面移動の摩擦
-        const horizontalVelocity = new THREE.Vector3(this.velocity.x, 0, this.velocity.z);
-        horizontalVelocity.multiplyScalar(1 - this.friction * delta);
-        this.velocity.x = horizontalVelocity.x;
-        this.velocity.z = horizontalVelocity.z;
+        const horizontalVel = new THREE.Vector3(this.velocity.x, 0, this.velocity.z);
+        horizontalVel.multiplyScalar(1 - this.friction * delta);
+        this.velocity.x = horizontalVel.x;
+        this.velocity.z = horizontalVel.z;
 
-        // スライディング判定 (走り中 + しゃがみ)
-        if (this.keys.crouch && this.onGround && !this.isSliding && horizontalVelocity.length() > 5) {
-            this.startSlide();
+        if (moveDir.x !== 0 || moveDir.z !== 0) {
+            const camDir = new THREE.Vector3();
+            this.camera.getWorldDirection(camDir);
+            camDir.y = 0;
+            camDir.normalize();
+
+            const camSide = new THREE.Vector3().crossVectors(this.camera.up, camDir).normalize();
+
+            const accel = this.onGround ? 100 : 20;
+            this.velocity.addScaledVector(camDir, moveDir.z * accel * delta);
+            this.velocity.addScaledVector(camSide, -moveDir.x * accel * delta);
         }
 
-        if (this.isSliding) {
-            this.updateSlide(delta);
-        } else {
-            // 通常移動
-            if (this.direction.z !== 0 || this.direction.x !== 0) {
-                const moveDir = new THREE.Vector3();
-                this.camera.getWorldDirection(moveDir);
-                moveDir.y = 0;
-                moveDir.normalize();
-
-                const sideDir = new THREE.Vector3();
-                sideDir.crossVectors(this.camera.up, moveDir).normalize();
-
-                const accel = this.onGround ? this.moveSpeed * 10 : this.moveSpeed * 2; // 空中制御は弱く
-                this.velocity.addScaledVector(moveDir, this.direction.z * accel * delta);
-                this.velocity.addScaledVector(sideDir, -this.direction.x * accel * delta);
-            }
+        if (this.keys.jump && this.onGround) {
+            this.velocity.y = this.jumpForce;
+            this.onGround = false;
         }
 
-        // 壁蹴り (Wall Jump) 判定 (空中 + 壁接触)
-        if (!this.onGround) {
-            this.checkWallContact();
-        } else {
-            this.canWallJump = false;
-        }
-
-        // ジャンプ
-        if (this.keys.jump) {
-            if (this.onGround) {
-                this.velocity.y = this.jumpForce;
-                this.onGround = false;
-            } else if (this.canWallJump) {
-                this.wallJump();
-            }
-        }
-
-        // 座標更新 (簡易的な床判定)
+        // 仮の床判定
         const nextPos = this.camera.position.clone().addScaledVector(this.velocity, delta);
-
         if (nextPos.y < 1.7) {
             nextPos.y = 1.7;
             this.velocity.y = 0;
@@ -144,142 +134,62 @@ export class Player {
         } else {
             this.onGround = false;
         }
-
         this.camera.position.copy(nextPos);
-
-        // 射撃処理
-        if (this.keys.shoot) {
-            this.shoot();
-        }
-
-        // しゃがみ姿勢のカメラ高さ
-        const targetHeight = (this.keys.crouch || this.isSliding) ? 0.8 : 1.7;
-        this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, nextPos.y - (1.7 - targetHeight), 0.2);
-    }
-
-    startSlide() {
-        this.isSliding = true;
-        this.slideTimer = 1.0; // 1秒間
-        // 初速ブースト
-        this.velocity.x *= 1.5;
-        this.velocity.z *= 1.5;
-    }
-
-    updateSlide(delta) {
-        this.slideTimer -= delta;
-        if (this.slideTimer <= 0 || !this.keys.crouch) {
-            this.isSliding = false;
-        }
-        // スライディング中の摩擦は極小にする
-        this.velocity.x *= (1 - 0.5 * delta);
-        this.velocity.z *= (1 - 0.5 * delta);
-    }
-
-    checkWallContact() {
-        // プレイヤーの周囲にレイを飛ばして壁を確認
-        const raycaster = new THREE.Raycaster();
-        const directions = [
-            new THREE.Vector3(1, 0, 0),
-            new THREE.Vector3(-1, 0, 0),
-            new THREE.Vector3(0, 0, 1),
-            new THREE.Vector3(0, 0, -1)
-        ];
-
-        this.canWallJump = false;
-
-        for (let dir of directions) {
-            dir.applyQuaternion(this.camera.quaternion);
-            dir.y = 0;
-            dir.normalize();
-
-            raycaster.set(this.camera.position, dir);
-            const intersects = raycaster.intersectObjects(this.scene.children);
-
-            if (intersects.length > 0 && intersects[0].distance < 1.0) {
-                this.canWallJump = true;
-                this.wallNormal.copy(intersects[0].face.normal);
-                break;
-            }
-        }
-    }
-
-    wallJump() {
-        // 壁の法線方向に強く押し出す
-        this.velocity.y = this.jumpForce * 0.8;
-        this.velocity.addScaledVector(this.wallNormal, 15);
-        this.canWallJump = false;
-        console.log("Wall Jump!");
     }
 
     shoot() {
-        const now = performance.now() / 1000;
-        if (now - this.lastShootTime < this.shootInterval) return;
-        this.lastShootTime = now;
+        console.log("Shooting!");
+        this.playShootSound();
 
-        console.log("Shoot!");
-
-        // レイキャスティングによるヒット判定
         const raycaster = new THREE.Raycaster();
-        const dir = new THREE.Vector3(0, 0, -1);
-        dir.applyQuaternion(this.camera.quaternion);
+        const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
         raycaster.set(this.camera.position, dir);
 
-        // 射撃エフェクト (簡易的な線)
-        this.createTracer(this.camera.position, dir);
-
-        if (this.network && this.network.remotePlayerMesh) {
-            const intersects = raycaster.intersectObject(this.network.remotePlayerMesh);
-            if (intersects.length > 0) {
-                console.log("HIT PLAYER!");
-                this.network.sendHit();
-            }
-        }
-
-        // 練習用ターゲットの判定
-        const targetIntersects = raycaster.intersectObjects(this.scene.children);
-        for (let intersect of targetIntersects) {
-            if (intersect.object.userData.isTarget) {
-                this.hitTarget(intersect.object);
-                break; // 貫通はしない
-            }
-        }
-
-        // ネットワーク越しに射撃を通知
-        if (this.network) {
-            this.network.sendShoot(this.camera.position, dir);
-        }
-    }
-
-    createTracer(start, direction) {
-        const points = [];
-        points.push(start.clone().addScaledVector(direction, 1)); // 少し前から開始
-        points.push(start.clone().addScaledVector(direction, 100));
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const material = new THREE.LineBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.5 });
-        const line = new THREE.Line(geometry, material);
+        // Tracer effect
+        const points = [this.camera.position.clone().addScaledVector(dir, 1), this.camera.position.clone().addScaledVector(dir, 100)];
+        const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: 0x00f2ff }));
         this.scene.add(line);
+        setTimeout(() => this.scene.remove(line), 50);
 
-        setTimeout(() => {
-            this.scene.remove(line);
-        }, 50);
+        // Hit detection
+        const intersects = raycaster.intersectObjects(this.scene.children);
+        for (let intersect of intersects) {
+            if (intersect.object.userData.isTarget) {
+                this.onHitTarget(intersect.object);
+                break;
+            }
+            if (this.network && intersect.object === this.network.remotePlayerMesh) {
+                this.network.sendHit();
+                break;
+            }
+        }
+
+        if (this.network) this.network.sendShoot(this.camera.position, dir);
     }
 
-    hitTarget(obj) {
-        console.log("HIT TARGET!");
+    onHitTarget(obj) {
+        obj.material.emissive.set(0xff0000);
         obj.userData.health -= 25;
-        obj.material.color.set(0xff0000); // 一瞬赤くする
-        setTimeout(() => {
-            if (obj.userData.health > 0) {
-                obj.material.color.set(0xffaa00);
-            } else {
-                // 壊れる演出（沈む）
-                obj.position.y = -5;
-                setTimeout(() => {
-                    obj.position.y = 2; // 3秒後に復活
-                    obj.userData.health = 100;
-                    obj.material.color.set(0xffaa00);
-                }, 3000);
-            }
-        }, 100);
+        if (obj.userData.health <= 0) {
+            obj.position.y = -5; // 沈む
+            setTimeout(() => { obj.position.y = 1; obj.userData.health = 100; obj.material.emissive.set(0xff5500); }, 3000);
+        } else {
+            setTimeout(() => obj.material.emissive.set(0xff5500), 100);
+        }
+    }
+
+    playShootSound() {
+        if (!this.audioCtx) return;
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(150, this.audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(40, this.audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.1, this.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + 0.1);
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+        osc.start();
+        osc.stop(this.audioCtx.currentTime + 0.1);
     }
 }
