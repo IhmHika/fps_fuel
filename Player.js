@@ -230,8 +230,17 @@ export class Player {
         if (this.network && this.network.remotePlayerMesh) {
             const intersects = raycaster.intersectObject(this.network.remotePlayerMesh);
             if (intersects.length > 0) {
-                console.log("HIT!");
+                console.log("HIT PLAYER!");
                 this.network.sendHit();
+            }
+        }
+
+        // 練習用ターゲットの判定
+        const targetIntersects = raycaster.intersectObjects(this.scene.children);
+        for (let intersect of targetIntersects) {
+            if (intersect.object.userData.isTarget) {
+                this.hitTarget(intersect.object);
+                break; // 貫通はしない
             }
         }
 
@@ -253,5 +262,24 @@ export class Player {
         setTimeout(() => {
             this.scene.remove(line);
         }, 50);
+    }
+
+    hitTarget(obj) {
+        console.log("HIT TARGET!");
+        obj.userData.health -= 25;
+        obj.material.color.set(0xff0000); // 一瞬赤くする
+        setTimeout(() => {
+            if (obj.userData.health > 0) {
+                obj.material.color.set(0xffaa00);
+            } else {
+                // 壊れる演出（沈む）
+                obj.position.y = -5;
+                setTimeout(() => {
+                    obj.position.y = 2; // 3秒後に復活
+                    obj.userData.health = 100;
+                    obj.material.color.set(0xffaa00);
+                }, 3000);
+            }
+        }, 100);
     }
 }

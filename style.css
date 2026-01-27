@@ -5,7 +5,8 @@
     --text-white: #e0e0e0;
 }
 
-body, html {
+body,
+html {
     margin: 0;
     padding: 0;
     width: 100%;
@@ -68,8 +69,8 @@ h1 {
 .menu-content button {
     display: block;
     width: 275px;
-    margin: 1rem auto;
-    padding: 1rem;
+    margin: 0.8rem auto;
+    padding: 0.8rem;
     background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
     border: none;
     border-radius: 8px;
@@ -78,6 +79,22 @@ h1 {
     font-size: 1.1rem;
     cursor: pointer;
     transition: transform 0.2s, opacity 0.2s;
+}
+
+.divider {
+    margin: 1rem 0;
+    display: flex;
+    align-items: center;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 0 1rem;
 }
 
 .menu-content button:hover {
@@ -98,7 +115,8 @@ h1 {
     pointer-events: none;
 }
 
-#crosshair::before, #crosshair::after {
+#crosshair::before,
+#crosshair::after {
     content: '';
     position: absolute;
     background: var(--primary-color);
@@ -110,6 +128,7 @@ h1 {
     left: 50%;
     top: -5px;
 }
+
 #crosshair::after {
     width: 10px;
     height: 1px;

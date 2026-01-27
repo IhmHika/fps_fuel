@@ -57,6 +57,20 @@ export class NetworkManager {
         this.isHost = false;
         this.setupPeer(id, (myId) => {
             const connection = this.peer.connect(targetId);
+
+            // 接続タイムアウトやエラーを監視
+            const timeout = setTimeout(() => {
+                if (!this.conn) {
+                    console.log("Connection timed out");
+                    this.peer.destroy();
+                }
+            }, 3000);
+
+            connection.on('error', (err) => {
+                console.log("Connect error:", err);
+                this.peer.destroy();
+            });
+
             this.handleConnection(connection);
             onReady(myId);
         });

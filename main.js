@@ -12,8 +12,12 @@ const hud = document.getElementById('hud');
 const statusMsg = document.getElementById('status-msg');
 const btnCreate = document.getElementById('btn-create-room');
 const btnJoin = document.getElementById('btn-join-room');
+const btnPractice = document.getElementById('btn-practice');
+const btnRandom = document.getElementById('btn-random-match');
 const myNameInput = document.getElementById('peer-id-input');
 const targetIdInput = document.getElementById('target-id-input');
+
+let targets = [];
 
 function init() {
     // シーンの作成
@@ -112,14 +116,68 @@ btnCreate.onclick = () => {
 };
 
 btnJoin.onclick = () => {
-    const myId = myNameInput.value + "_join";
+    const myId = myNameInput.value + "_join" + Math.floor(Math.random() * 1000);
     const targetId = targetIdInput.value;
+    if (!targetId) {
+        statusMsg.innerText = "Please enter a Join ID";
+        return;
+    }
     statusMsg.innerText = "Joining...";
     network.joinRoom(myId, targetId, (id) => {
         statusMsg.innerText = "Connected!";
         startGame();
     });
 };
+
+btnPractice.onclick = () => {
+    startGame();
+    addPracticeTargets();
+    statusMsg.innerText = "Practice Mode Started";
+};
+
+btnRandom.onclick = () => {
+    const randomLobbyId = "APEX_FPS_RANDOM_LOBBY";
+    const myId = myNameInput.value + "_match_" + Math.floor(Math.random() * 1000);
+
+    statusMsg.innerText = "Searching for match...";
+
+    // まず参加を試みる
+    network.joinRoom(myId, randomLobbyId, (id) => {
+        statusMsg.innerText = "Matched! Connected.";
+        startGame();
+    });
+
+    // 5秒待って接続できなければ自分がホストになる（簡易）
+    setTimeout(() => {
+        if (!isGameStarted) {
+            statusMsg.innerText = "No one found. Hosting match...";
+            network.createRoom(randomLobbyId, (id) => {
+                startGame();
+            });
+        }
+    }, 5000);
+};
+
+function addPracticeTargets() {
+    // 練習用のターゲットをいくつか配置
+    for (let i = 0; i < 5; i++) {
+        const x = (Math.random() - 0.5) * 40;
+        const z = -20 - Math.random() * 20;
+        const target = addTarget(x, 2, z);
+        targets.push(target);
+    }
+}
+
+function addTarget(x, y, z) {
+    const geo = new THREE.CylinderGeometry(0.5, 0.5, 2, 8);
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffaa00 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y, z);
+    mesh.userData.isTarget = true;
+    mesh.userData.health = 100;
+    scene.add(mesh);
+    return mesh;
+}
 
 function startGame() {
     menu.style.display = 'none';
