@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1v1 APEX Style FPS</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <!-- メインの3Dレンダリングコンテナ -->
+    <div id="game-container"></div>
+
+    <!-- UI レイヤー -->
+    <div id="ui-layer">
+        <!-- 初期表示メニュー -->
+        <div id="menu" class="glass">
+            <h1>1v1 FPS</h1>
+            <div class="menu-content">
+                <input type="text" id="peer-id-input" placeholder="Your Name" value="Player1">
+                <button id="btn-create-room">ルームを作成 (Host)</button>
+                <hr>
+                <input type="text" id="target-id-input" placeholder="Join ID">
+                <button id="btn-join-room">参加する (Join)</button>
+            </div>
+            <p id="status-msg"></p>
+        </div>
+
+        <!-- ゲーム内HUD -->
+        <div id="hud" style="display: none;">
+            <div id="crosshair"></div>
+            <div id="health-bar-container">
+                <div id="health-bar"></div>
+            </div>
+            <div id="shield-bar-container">
+                <div id="shield-bar"></div>
+            </div>
+            <div id="ammo">30 / ∞</div>
+        </div>
+    </div>
+
+    <script type="module" src="./main.js"></script>
+</body>
+</html>
