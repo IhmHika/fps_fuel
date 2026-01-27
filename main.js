@@ -34,12 +34,13 @@ function init() {
     // シーンの作成
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a0c);
-    scene.fog = new THREE.FogExp2(0x0a0a0c, 0.02);
 
     clock = new THREE.Clock();
 
     // カメラの作成
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 5, 10); // 少し引いた位置に変更
+    scene.add(camera);
     camera.position.set(0, 1.7, 5); // 初期位置を設定
     scene.add(camera); // シーンに追加
 
@@ -49,13 +50,21 @@ function init() {
     renderer.setPixelRatio(window.devicePixelRatio);
     document.getElementById('game-container').appendChild(renderer.domElement);
 
-    // 照明
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    // 照明 (強度をアップ)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0x00f2ff, 1);
-    directionalLight.position.set(5, 10, 7.5);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0);
+    directionalLight.position.set(5, 20, 7.5);
     scene.add(directionalLight);
+
+    // テスト用の赤い巨大な立方体 (これが見えるか確認)
+    const testBox = new THREE.Mesh(
+        new THREE.BoxGeometry(2, 2, 2),
+        new THREE.MeshBasicMaterial({ color: 0xff0000 })
+    );
+    testBox.position.set(0, 1, 0);
+    scene.add(testBox);
 
     // 仮の地面
     const floorGeometry = new THREE.PlaneGeometry(200, 200);
