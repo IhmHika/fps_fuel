@@ -122,11 +122,13 @@ export class Player {
         this.direction.x = Number(this.keys.right) - Number(this.keys.left);
         this.direction.normalize();
 
-        // Apply Friction
-        const horizontalVel = new THREE.Vector3(this.velocity.x, 0, this.velocity.z);
-        horizontalVel.multiplyScalar(1 - this.friction * delta);
-        this.velocity.x = horizontalVel.x;
-        this.velocity.z = horizontalVel.z;
+        // Apply Friction (Ground ONLY for momentum)
+        if (this.onGround) {
+            const horizontalVel = new THREE.Vector3(this.velocity.x, 0, this.velocity.z);
+            horizontalVel.multiplyScalar(1 - this.friction * delta);
+            this.velocity.x = horizontalVel.x;
+            this.velocity.z = horizontalVel.z;
+        }
 
         // Acceleration
         if (this.direction.x !== 0 || this.direction.z !== 0) {
@@ -150,6 +152,15 @@ export class Player {
 
         // Apply Velocity & Floor Collision
         const nextPos = this.camera.position.clone().addScaledVector(this.velocity, delta);
+
+        // World Boundaries (100 units from origin)
+        const dist = Math.sqrt(nextPos.x * nextPos.x + nextPos.z * nextPos.z);
+        if (dist > 100) {
+            const angle = Math.atan2(nextPos.z, nextPos.x);
+            nextPos.x = Math.cos(angle) * 100;
+            nextPos.z = Math.sin(angle) * 100;
+        }
+
         if (nextPos.y < 1.7) {
             nextPos.y = 1.7;
             this.velocity.y = 0;

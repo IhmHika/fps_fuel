@@ -18,14 +18,16 @@ window.onerror = (msg, url, line) => {
 window.addEventListener('keydown', (e) => {
     // Specifically block common browser shortcuts during matches
     if (isGameStarted || e.ctrlKey) {
+        // Block movement interfering combos
         const blockedCodes = ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyR', 'KeyF', 'KeyT', 'KeyN', 'KeyP', 'KeyS', 'KeyH'];
         if (e.ctrlKey && blockedCodes.includes(e.code)) {
             e.preventDefault();
-            e.stopPropagation();
+            e.stopImmediatePropagation();
         }
-        // Block alone F1, F3, F5
-        if (['F1', 'F3', 'F5'].includes(e.code) && !e.ctrlKey) {
+        // Block F-keys
+        if (['F1', 'F3', 'F5', 'F6', 'F11', 'F12'].includes(e.code) && !e.ctrlKey) {
             e.preventDefault();
+            e.stopImmediatePropagation();
         }
     }
 }, { capture: true });
@@ -110,6 +112,19 @@ async function init() {
         const grid = new THREE.GridHelper(200, 40, 0xff4655, 0x1a1a1a);
         grid.position.y = 0.02;
         scene.add(grid);
+
+        // Visual Boundary (Wall of lights)
+        const boundGeo = new THREE.CylinderGeometry(100, 100, 10, 64, 1, true);
+        const boundMat = new THREE.MeshBasicMaterial({
+            color: 0xff4655,
+            transparent: true,
+            opacity: 0.1,
+            side: THREE.BackSide,
+            wireframe: true
+        });
+        const boundary = new THREE.Mesh(boundGeo, boundMat);
+        boundary.position.y = 5;
+        scene.add(boundary);
 
         // Map obstacles (Abstract shapes)
         addObstacle(10, 5, -10, 4, 10, 4);
