@@ -17,15 +17,18 @@ window.onerror = (msg, url, line) => {
 
 // --- Shortcut Interference Prevention ---
 window.addEventListener('keydown', (e) => {
-    if (e.ctrlKey) {
-        // Block shortcuts that use movement/action keys
-        const blocked = ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyR', 'KeyF', 'KeyT', 'KeyN', 'KeyP'];
-        if (blocked.includes(e.code)) {
-            e.preventDefault();
-        }
+    // Specifically block common browser shortcuts during matches
+    const blockedCodes = ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyR', 'KeyF', 'KeyT', 'KeyN', 'KeyP', 'KeyS'];
+    if (e.ctrlKey && (blockedCodes.includes(e.code) || e.code === 'KeyW')) {
+        e.preventDefault();
+        e.stopPropagation();
     }
-    // Block Help/Refresh which can be annoying
-    if (e.code === 'F1' || e.code === 'F5') {
+    // Block Alt+D, Alt+Enter etc if needed
+    if (e.altKey || e.metaKey) {
+        // Option to block OS level but limited in browser
+    }
+    // Block help/refresh
+    if (e.code === 'F1' || e.code === 'F5' || e.code === 'F11') {
         if (!e.ctrlKey) e.preventDefault();
     }
 }, { capture: true });
@@ -256,6 +259,7 @@ function setupUIListeners() {
 
 function startSession() {
     isGameStarted = true;
+    if (player) player.isActive = true; // Activate player logic and pointer lock
     topNav.style.display = 'none';
     lobbyContent.style.display = 'none';
     hud.style.display = 'block';

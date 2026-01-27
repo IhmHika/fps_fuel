@@ -17,6 +17,7 @@ export class Player {
 
         // States
         this.onGround = false;
+        this.isActive = false; // Added to control lobby vs game interaction
         this.keys = { forward: false, backward: false, left: false, right: false, jump: false, shoot: false };
         this.network = null;
 
@@ -82,7 +83,7 @@ export class Player {
         document.addEventListener('mousedown', () => {
             if (this.controls.isLocked) {
                 this.shoot();
-            } else {
+            } else if (this.isActive) {
                 this.controls.lock();
             }
         });
