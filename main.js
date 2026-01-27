@@ -2,93 +2,90 @@ import * as THREE from 'three';
 import { Player } from './Player.js';
 import { NetworkManager } from './NetworkManager.js';
 
-// Global error display
+// --- Error Logger ---
 const reportError = (msg) => {
     const display = document.getElementById('error-display');
     if (display) {
-        display.innerHTML += `<div style="padding:4px; border-bottom:1px solid #722;">[Script] ${msg}</div>`;
+        display.innerHTML += `<div style="padding:4px; border-bottom:1px dotted #f00; background:rgba(0,0,0,0.5);">[Log] ${msg}</div>`;
     }
 };
 
 window.onerror = (msg, url, line) => {
-    reportError(`${msg} (${url}:${line})`);
+    reportError(`${msg} (${line})`);
     return false;
 };
 
+// --- Game Logic ---
 let scene, camera, renderer, clock;
 let player, network;
 let isGameStarted = false;
 
-function init() {
-    console.log("Initializing Game...");
+const menu = document.getElementById('menu');
+const hud = document.getElementById('hud');
+const statusMsg = document.getElementById('status-msg');
+
+async function init() {
+    console.log("Game Initialization Started");
 
     try {
         const container = document.getElementById('game-container');
-        if (!container) throw new Error("Canvas container not found");
+        if (!container) throw new Error("Container #game-container not found");
 
+        // 1. Scene setup
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x050510);
+        scene.background = new THREE.Color(0x0a0a14);
 
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        // 最初はロビー用の俯瞰カメラ
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
         camera.position.set(20, 20, 20);
         camera.lookAt(0, 0, 0);
+        scene.add(camera); // IMPORTANT: Needed for camera-attached objects like the gun
 
-        renderer = new THREE.WebGLRenderer({ antialias: true });
+        // 2. Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         container.appendChild(renderer.domElement);
 
         clock = new THREE.Clock();
 
-        // 照明
-        const ambient = new THREE.AmbientLight(0xffffff, 1.0);
+        // 3. World
+        const ambient = new THREE.AmbientLight(0xffffff, 1.2);
         scene.add(ambient);
 
-        const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-        sun.position.set(5, 10, 7.5);
-        scene.add(sun);
+        const directional = new THREE.DirectionalLight(0x00f2ff, 1.0);
+        directional.position.set(10, 20, 10);
+        scene.add(directional);
 
-        // 地面
+        // Ground
         const ground = new THREE.Mesh(
-            new THREE.PlaneGeometry(200, 200),
-            new THREE.MeshStandardMaterial({ color: 0x1a1a2e })
+            new THREE.PlaneGeometry(1000, 1000),
+            new THREE.MeshStandardMaterial({ color: 0x111122 })
         );
         ground.rotation.x = -Math.PI / 2;
         scene.add(ground);
 
-        // グリッド
-        const grid = new THREE.GridHelper(200, 40, 0x00f2ff, 0x111111);
+        // Grid
+        const grid = new THREE.GridHelper(100, 20, 0x00f2ff, 0x222222);
         grid.position.y = 0.01;
         scene.add(grid);
 
-        // 障害物の追加
-        addObstacle(10, 2, -10, 5, 4, 5);
-        addObstacle(-15, 3, 5, 8, 6, 2);
-
-        // プレイヤーとネットワーク
+        // 4. Player & Network
         player = new Player(camera, renderer.domElement, scene);
         network = new NetworkManager(scene, player);
         player.network = network;
 
         window.addEventListener('resize', onWindowResize);
 
+        // 5. Start looping
         animate();
+        console.log("Initialization Complete");
+
     } catch (e) {
-        reportError("Init Fail: " + e.message);
+        reportError("Fatal error during init: " + e.message);
     }
 }
 
-function addObstacle(x, y, z, sx, sy, sz) {
-    const geo = new THREE.BoxGeometry(sx, sy, sz);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x2d2d3d });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(x, y, z);
-    scene.add(mesh);
-}
-
 function onWindowResize() {
-    if (!camera || !renderer) return;
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -101,40 +98,40 @@ function animate() {
     if (isGameStarted) {
         player.update(delta);
     } else {
-        // ロビー時のカメラ回転演出
+        // Lobby view: Rotate camera around center
         const time = Date.now() * 0.0005;
-        camera.position.x = Math.sin(time) * 30;
-        camera.position.z = Math.cos(time) * 30;
-        camera.position.y = 20;
-        camera.lookAt(0, 0, 0);
+        camera.position.x = Math.sin(time) * 25;
+        camera.position.z = Math.cos(time) * 25;
+        camera.position.y = 15;
+        camera.lookAt(0, 5, 0);
     }
 
     renderer.render(scene, camera);
 }
 
-// UI Setup
-function startGlobalMatch() {
+function startMatch() {
     isGameStarted = true;
-    document.getElementById('menu').style.display = 'none';
-    document.getElementById('hud').style.display = 'block';
+    menu.style.display = 'none';
+    hud.style.display = 'block';
 
-    // FPS視点へ移行
+    // Switch to FPS view
     camera.position.set(0, 1.7, 0);
     camera.rotation.set(0, 0, 0);
-    if (player && player.controls) player.controls.lock();
+    if (player.controls) player.controls.lock();
 }
 
+// Button Events
 document.getElementById('btn-practice').onclick = () => {
-    startGlobalMatch();
-    // ターゲット追加
+    startMatch();
+    statusMsg.innerText = "Practice Range Entered";
+
+    // Add dummy targets
     for (let i = 0; i < 10; i++) {
-        const x = (Math.random() - 0.5) * 60;
-        const z = -20 - Math.random() * 40;
         const target = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.5, 0.5, 2),
-            new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0x552200 })
+            new THREE.CylinderGeometry(0.5, 0.5, 2, 8),
+            new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xff0000, emissiveIntensity: 0.2 })
         );
-        target.position.set(x, 1, z);
+        target.position.set((Math.random() - 0.5) * 40, 1, -10 - Math.random() * 20);
         target.userData.isTarget = true;
         target.userData.health = 100;
         scene.add(target);
@@ -142,11 +139,14 @@ document.getElementById('btn-practice').onclick = () => {
 };
 
 document.getElementById('btn-random-match').onclick = () => {
-    startGlobalMatch();
-    network.joinRoom("Player_" + Math.floor(Math.random() * 100), "RANDOM_LOBBY", () => { });
+    startMatch();
+    statusMsg.innerText = "Connecting to Global Lobby...";
+    const lobbyId = "GLOBAL_FPS_LOBBY";
+    network.joinRoom("Player_" + Math.floor(Math.random() * 100), lobbyId, () => { });
     setTimeout(() => {
-        if (!network.conn) network.createRoom("RANDOM_LOBBY", () => { });
-    }, 3000);
+        if (!network.conn) network.createRoom(lobbyId, () => { });
+    }, 4000);
 };
 
+// Initial call
 init();
