@@ -133,6 +133,16 @@ function animate() {
 
 // --- UI Logic ---
 function setupUIListeners() {
+    window.addEventListener('kill-notification', (e) => {
+        const feed = document.getElementById('kill-feed');
+        if (!feed) return;
+        const item = document.createElement('div');
+        item.className = 'kill-item';
+        item.innerText = `YOU KILLED ${e.detail.victim}`;
+        feed.appendChild(item);
+        setTimeout(() => item.remove(), 3000);
+    });
+
     const switchPanel = (panelId) => {
         [homePanel, matchPanel].forEach(p => p.classList.remove('active'));
         [navHome, navPractice, navMatch].forEach(b => b.classList.remove('active'));

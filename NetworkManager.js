@@ -134,9 +134,19 @@ export class NetworkManager {
             console.log("I'M HIT! Health:", this.health);
             this.updateHUD();
             if (this.health <= 0) {
+                // Killer is the data sender in P2P (implicitly)
+                this.sendDeath();
                 this.respawn();
             }
+        } else if (data.type === 'death') {
+            // 相手を倒した
+            window.dispatchEvent(new CustomEvent('kill-notification', { detail: { victim: '相手プレイヤー' } }));
         }
+    }
+
+    sendDeath() {
+        if (!this.conn || !this.conn.open) return;
+        this.conn.send({ type: 'death' });
     }
 
     updateHUD() {

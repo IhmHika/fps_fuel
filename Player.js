@@ -167,20 +167,19 @@ export class Player {
         raycaster.set(this.camera.position, dir);
 
         // Tracer Effect
-        const start = this.camera.position.clone().addScaledVector(dir, 1);
-        const end = this.camera.position.clone().addScaledVector(dir, 100);
-        const line = new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints([start, end]),
-            new THREE.LineBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.5 })
-        );
-        this.scene.add(line);
-        setTimeout(() => this.scene.remove(line), 50);
+        this.createTracer(this.camera.position.clone().addScaledVector(dir, 1), dir);
 
         // Hit Detection
-        const hits = raycaster.intersectObjects(this.scene.children);
-        for (let hit of hits) {
-            if (hit.object.userData.isTarget) {
-                this.hitTarget(hit.object);
+        const intersects = raycaster.intersectObjects(this.scene.children);
+        for (let intersect of intersects) {
+            if (intersect.object.userData.isTarget) {
+                this.hitTarget(intersect.object);
+                break;
+            }
+            // リモートプレイヤーのヒット判定
+            if (this.network && intersect.object === this.network.remotePlayerMesh) {
+                this.showHitmarker();
+                this.network.sendHit(); // 被弾側に通知
                 break;
             }
         }
@@ -190,14 +189,34 @@ export class Player {
 
     hitTarget(obj) {
         this.playHitSound();
+        this.showHitmarker();
         obj.userData.health -= 20;
         obj.material.emissiveIntensity = 2.0;
         setTimeout(() => obj.material.emissiveIntensity = 0.3, 100);
 
         if (obj.userData.health <= 0) {
             obj.position.y = -5; // Sink
+            window.dispatchEvent(new CustomEvent('kill-notification', { detail: { victim: 'ターゲット' } }));
             setTimeout(() => { obj.position.y = 1; obj.userData.health = 100; }, 3000);
         }
+    }
+
+    showHitmarker() {
+        const h = document.getElementById('hitmarker');
+        if (h) {
+            h.classList.add('active');
+            setTimeout(() => h.classList.remove('active'), 100);
+        }
+    }
+
+    createTracer(start, dir) {
+        const end = start.clone().addScaledVector(dir, 100);
+        const line = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints([start, end]),
+            new THREE.LineBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.4 })
+        );
+        this.scene.add(line);
+        setTimeout(() => this.scene.remove(line), 50);
     }
 
     playShootSound() {
