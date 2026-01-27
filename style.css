@@ -117,36 +117,37 @@ h1 {
 
 /* HUD styles */
 #crosshair {
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    border: 2px solid var(--primary-color);
-    border-radius: 50%;
+    position: fixed;
     top: 50%;
     left: 50%;
+    width: 30px;
+    height: 30px;
     transform: translate(-50%, -50%);
     pointer-events: none;
 }
 
-#crosshair::before,
+/* Horizontal line */
+#crosshair::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--primary-color);
+    margin-top: -1px;
+}
+
+/* Vertical line */
 #crosshair::after {
     content: '';
     position: absolute;
-    background: var(--primary-color);
-}
-
-#crosshair::before {
-    width: 1px;
-    height: 10px;
     left: 50%;
-    top: -5px;
-}
-
-#crosshair::after {
-    width: 10px;
-    height: 1px;
-    top: 50%;
-    left: -5px;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: var(--primary-color);
+    margin-left: -1px;
 }
 
 #health-bar-container {
