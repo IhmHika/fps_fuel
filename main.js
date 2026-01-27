@@ -1,3 +1,7 @@
+import * as THREE from 'three';
+import { Player } from './Player.js';
+import { NetworkManager } from './NetworkManager.js';
+
 // エラーログの表示
 window.onerror = function (msg, url, lineNo, columnNo, error) {
     const display = document.getElementById('error-display');
@@ -6,10 +10,6 @@ window.onerror = function (msg, url, lineNo, columnNo, error) {
     }
     return false;
 };
-
-import * as THREE from 'three';
-import { Player } from './Player.js';
-import { NetworkManager } from './NetworkManager.js';
 
 // 基本変数の定義
 let scene, camera, renderer, clock;
@@ -31,73 +31,72 @@ let targets = [];
 
 function init() {
     console.log("Initializing Three.js scene...");
-    // シーンの作成
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0a0c);
+    try {
+        // シーンの作成
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x111122); // 少し青みがかった背景
 
-    clock = new THREE.Clock();
+        clock = new THREE.Clock();
 
-    // カメラの作成
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 5, 10); // 少し引いた位置に変更
-    scene.add(camera);
-    camera.position.set(0, 1.7, 5); // 初期位置を設定
-    scene.add(camera); // シーンに追加
+        // カメラの作成
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 1.7, 5);
+        scene.add(camera);
 
-    // レンダラーの作成
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    document.getElementById('game-container').appendChild(renderer.domElement);
+        // レンダラーの作成
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('game-container').appendChild(renderer.domElement);
 
-    // 照明 (強度をアップ)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
-    scene.add(ambientLight);
+        // 照明
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+        scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0);
-    directionalLight.position.set(5, 20, 7.5);
-    scene.add(directionalLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        directionalLight.position.set(5, 10, 7.5);
+        scene.add(directionalLight);
 
-    // テスト用の赤い巨大な立方体 (これが見えるか確認)
-    const testBox = new THREE.Mesh(
-        new THREE.BoxGeometry(2, 2, 2),
-        new THREE.MeshBasicMaterial({ color: 0xff0000 })
-    );
-    testBox.position.set(0, 1, 0);
-    scene.add(testBox);
+        // 仮の地面
+        const floorGeometry = new THREE.PlaneGeometry(200, 200);
+        const floorMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1a1a1c,
+            roughness: 0.8,
+            metalness: 0.2
+        });
+        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
 
-    // 仮の地面
-    const floorGeometry = new THREE.PlaneGeometry(200, 200);
-    const floorMaterial = new THREE.MeshStandardMaterial({
-        color: 0x1a1a1c,
-        roughness: 0.8,
-        metalness: 0.2
-    });
-    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-    floor.rotation.x = -Math.PI / 2;
-    scene.add(floor);
+        // グリッド
+        const grid = new THREE.GridHelper(200, 50, 0x00f2ff, 0x222222);
+        grid.position.y = 0.01;
+        scene.add(grid);
 
-    // グリッドヘルパー
-    const grid = new THREE.GridHelper(200, 50, 0x00f2ff, 0x222222);
-    grid.position.y = 0.01;
-    scene.add(grid);
+        // テスト用ボックス
+        const testBox = new THREE.Mesh(
+            new THREE.BoxGeometry(2, 2, 2),
+            new THREE.MeshBasicMaterial({ color: 0xff0000 })
+        );
+        testBox.name = "testBox";
+        testBox.position.set(0, 1, -5);
+        scene.add(testBox);
 
-    // 障害物の追加 (立体感と移動の楽しみのため)
-    addObstacle(0, 2, -10, 10, 4, 2);
-    addObstacle(15, 1, 0, 5, 2, 5);
-    addObstacle(-15, 3, 5, 4, 6, 4);
+        // 障害物の追加
+        addObstacle(10, 2, -10, 10, 4, 2);
+        addObstacle(-10, 1, 0, 5, 2, 5);
 
-    // プレイヤーの初期化
-    player = new Player(camera, renderer.domElement, scene);
+        // プレイヤーとネットワーク
+        player = new Player(camera, renderer.domElement, scene);
+        network = new NetworkManager(scene, player);
+        player.network = network;
 
-    // ネットワークの初期化
-    network = new NetworkManager(scene, player);
-    player.network = network;
-
-    // ウィンドウリサイズ対応
-    window.addEventListener('resize', onWindowResize, false);
-
-    animate();
+        window.addEventListener('resize', onWindowResize, false);
+        animate();
+    } catch (e) {
+        console.error("Init failed:", e);
+        document.getElementById('error-display').innerHTML += `<div>Init error: ${e.message}</div>`;
+    }
 }
 
 function addObstacle(x, y, z, sx, sy, sz) {
@@ -122,6 +121,10 @@ function animate() {
         player.update(delta);
     }
 
+    // テストボックスを回転させる
+    const box = scene.getObjectByName("testBox");
+    if (box) box.rotation.y += 0.01;
+
     renderer.render(scene, camera);
 }
 
@@ -130,10 +133,8 @@ btnCreate.onclick = () => {
     const myId = myNameInput.value;
     statusMsg.innerText = "Connecting...";
     network.createRoom(myId, (id) => {
-        statusMsg.innerText = `Room Created! ID: ${id} (Wait for player...)`;
-        // ホストは参加を待つ
+        statusMsg.innerText = `Room Created! ID: ${id}`;
     });
-    // ゲームは開始するが、相手を待つ状態
     startGame();
 };
 
@@ -141,11 +142,11 @@ btnJoin.onclick = () => {
     const myId = myNameInput.value + "_join" + Math.floor(Math.random() * 1000);
     const targetId = targetIdInput.value;
     if (!targetId) {
-        statusMsg.innerText = "Please enter a Join ID";
+        statusMsg.innerText = "Enter Join ID";
         return;
     }
     statusMsg.innerText = "Joining...";
-    network.joinRoom(myId, targetId, (id) => {
+    network.joinRoom(myId, targetId, () => {
         statusMsg.innerText = "Connected!";
         startGame();
     });
@@ -154,39 +155,28 @@ btnJoin.onclick = () => {
 btnPractice.onclick = () => {
     startGame();
     addPracticeTargets();
-    statusMsg.innerText = "Practice Mode Started";
+    statusMsg.innerText = "Practice Mode";
 };
 
 btnRandom.onclick = () => {
     const randomLobbyId = "APEX_FPS_RANDOM_LOBBY";
     const myId = myNameInput.value + "_match_" + Math.floor(Math.random() * 1000);
-
-    statusMsg.innerText = "Searching for match...";
-
-    // まず参加を試みる
-    network.joinRoom(myId, randomLobbyId, (id) => {
-        statusMsg.innerText = "Matched! Connected.";
+    statusMsg.innerText = "Matching...";
+    network.joinRoom(myId, randomLobbyId, () => {
         startGame();
     });
-
-    // 5秒待って接続できなければ自分がホストになる（簡易）
     setTimeout(() => {
         if (!isGameStarted) {
-            statusMsg.innerText = "No one found. Hosting match...";
-            network.createRoom(randomLobbyId, (id) => {
-                startGame();
-            });
+            network.createRoom(randomLobbyId, () => startGame());
         }
-    }, 5000);
+    }, 4000);
 };
 
 function addPracticeTargets() {
-    // 練習用のターゲットをいくつか配置
     for (let i = 0; i < 5; i++) {
-        const x = (Math.random() - 0.5) * 40;
-        const z = -20 - Math.random() * 20;
-        const target = addTarget(x, 2, z);
-        targets.push(target);
+        const x = (Math.random() - 0.5) * 30;
+        const z = -15 - Math.random() * 15;
+        addTarget(x, 1, z);
     }
 }
 
@@ -198,14 +188,15 @@ function addTarget(x, y, z) {
     mesh.userData.isTarget = true;
     mesh.userData.health = 100;
     scene.add(mesh);
-    return mesh;
 }
 
 function startGame() {
     menu.style.display = 'none';
     hud.style.display = 'block';
     isGameStarted = true;
-    console.log("Game Started");
+    if (player && player.controls) {
+        player.controls.lock();
+    }
 }
 
 init();
