@@ -29,11 +29,12 @@ html {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-    background-size: 100% 2px, 3px 100%;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%),
+        radial-gradient(circle, transparent 40%, rgba(0, 0, 0, 0.4) 150%);
+    background-size: 100% 2px, 100% 100%;
     pointer-events: none;
     z-index: 5;
-    opacity: 0.3;
+    opacity: 0.4;
 }
 
 #game-container {
@@ -181,20 +182,38 @@ html {
     background: var(--val-red);
     color: var(--val-white);
     border: none;
-    padding: 20px 60px;
-    font-size: 1.5rem;
+    padding: 20px 80px;
+    font-size: 1.8rem;
     font-weight: bold;
+    font-family: 'Oswald', sans-serif;
     text-transform: uppercase;
     cursor: pointer;
     align-self: flex-start;
-    margin-top: 30px;
+    margin-top: 40px;
     clip-path: polygon(0 0, 95% 0, 100% 30%, 100% 100%, 5% 100%, 0 70%);
-    transition: transform 0.2s, background 0.3s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 0 0 rgba(255, 70, 85, 0.4);
+    animation: btnPulse 2s infinite;
 }
 
 .btn-primary-val:hover {
-    transform: scale(1.05);
+    transform: scale(1.05) translateX(5px);
     background: #ff5e6a;
+    box-shadow: 0 0 30px rgba(255, 70, 85, 0.6);
+}
+
+@keyframes btnPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 70, 85, 0.4);
+    }
+
+    70% {
+        box-shadow: 0 0 0 20px rgba(255, 70, 85, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 70, 85, 0);
+    }
 }
 
 .match-grid {
