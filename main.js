@@ -57,12 +57,29 @@ async function init() {
         clock = new THREE.Clock();
 
         // Environment
-        const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+        const ambient = new THREE.AmbientLight(0xffffff, 0.4);
         scene.add(ambient);
 
-        const directional = new THREE.DirectionalLight(0xff4655, 1.2);
+        const directional = new THREE.DirectionalLight(0xff4655, 1.5);
         directional.position.set(15, 30, 10);
         scene.add(directional);
+
+        const pointLight = new THREE.PointLight(0x00f2ff, 1.5, 100);
+        pointLight.position.set(0, 10, 0);
+        scene.add(pointLight);
+
+        // Lobby Particles
+        const particleGeo = new THREE.BufferGeometry();
+        const particleCount = 200;
+        const posArray = new Float32Array(particleCount * 3);
+        for (let i = 0; i < particleCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 100;
+        }
+        particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particleMat = new THREE.PointsMaterial({ size: 0.1, color: 0xff4655, transparent: true, opacity: 0.5 });
+        const particles = new THREE.Points(particleGeo, particleMat);
+        scene.add(particles);
+        window.lobbyParticles = particles;
 
         // Ground (Valorant style grid)
         const groundGeo = new THREE.PlaneGeometry(500, 500);
@@ -126,6 +143,10 @@ function animate() {
         camera.position.z = Math.cos(time) * 35;
         camera.position.y = 15 + Math.sin(time * 0.5) * 5;
         camera.lookAt(0, 5, 0);
+
+        if (window.lobbyParticles) {
+            window.lobbyParticles.rotation.y += delta * 0.05;
+        }
     }
 
     renderer.render(scene, camera);
@@ -133,6 +154,25 @@ function animate() {
 
 // --- UI Logic ---
 function setupUIListeners() {
+    const playHoverSound = () => {
+        if (!player || !player.audioCtx) return;
+        const o = player.audioCtx.createOscillator();
+        const g = player.audioCtx.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(440, player.audioCtx.currentTime);
+        g.gain.setValueAtTime(0.02, player.audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, player.audioCtx.currentTime + 0.05);
+        o.connect(g);
+        g.connect(player.audioCtx.destination);
+        o.start();
+        o.stop(player.audioCtx.currentTime + 0.05);
+    };
+
+    // Add hover to all nav and primary buttons
+    document.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('mouseenter', playHoverSound);
+    });
+
     window.addEventListener('kill-notification', (e) => {
         const feed = document.getElementById('kill-feed');
         if (!feed) return;

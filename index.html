@@ -6,18 +6,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>1v1 APEX Style FPS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Oswald:wght@400;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="./style.css">
 </head>
 
 <body>
     <!-- メインの3Dレンダリングコンテナ -->
     <div id="game-container"></div>
+    <div id="scanline-overlay"></div>
 
     <!-- UI レイヤー -->
     <div id="ui-layer">
         <!-- Valorant-style Top Navigation -->
         <nav id="top-nav">
-            <div class="nav-logo">1v1 DUEL</div>
+            <div class="nav-left" style="display:flex; align-items:center; gap:15px;">
+                <div class="nav-logo">1v1 FUEL</div>
+                <div class="version-badge">BETA</div>
+            </div>
             <div class="nav-links">
                 <button id="nav-home" class="active">ホーム</button>
                 <button id="nav-practice">練習場</button>

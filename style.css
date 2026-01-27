@@ -19,8 +19,21 @@ html {
     height: 100%;
     overflow: hidden;
     background-color: var(--val-black);
-    font-family: 'Oswald', 'Inter', system-ui, sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
     color: var(--val-white);
+}
+
+#scanline-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    background-size: 100% 2px, 3px 100%;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0.3;
 }
 
 #game-container {
@@ -59,26 +72,40 @@ html {
 }
 
 .nav-logo {
-    font-size: 1.5rem;
+    font-family: 'Oswald', sans-serif;
+    font-size: 1.8rem;
     font-weight: bold;
-    letter-spacing: 2px;
+    letter-spacing: 3px;
+    color: var(--val-white);
+    text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+}
+
+.version-badge {
+    background: var(--val-red);
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    font-weight: bold;
+    border-radius: 2px;
+    letter-spacing: 1px;
 }
 
 .nav-links {
     display: flex;
-    gap: 20px;
+    gap: 30px;
 }
 
 .nav-links button {
+    font-family: 'Oswald', sans-serif;
     background: none;
     border: none;
-    color: rgba(236, 232, 225, 0.5);
-    font-size: 1.1rem;
+    color: rgba(236, 232, 225, 0.4);
+    font-size: 1.2rem;
     font-weight: bold;
     text-transform: uppercase;
     cursor: pointer;
-    padding: 10px 15px;
-    transition: color 0.3s, border-bottom 0.3s;
+    padding: 10px 5px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     border-bottom: 3px solid transparent;
 }
 
@@ -131,12 +158,14 @@ html {
 }
 
 .valorant-title {
-    font-size: 5rem;
-    font-weight: 900;
+    font-family: 'Oswald', sans-serif;
+    font-size: 6rem;
+    font-weight: 700;
     text-transform: uppercase;
-    line-height: 1;
-    margin-bottom: 10px;
-    text-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    line-height: 0.9;
+    margin-bottom: 15px;
+    letter-spacing: -2px;
+    text-shadow: 0 5px 30px rgba(255, 70, 85, 0.3);
 }
 
 .section-title {
