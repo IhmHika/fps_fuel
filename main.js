@@ -21,6 +21,7 @@ const targetIdInput = document.getElementById('target-id-input');
 let targets = [];
 
 function init() {
+    console.log("Initializing Three.js scene...");
     // シーンの作成
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a0c);
