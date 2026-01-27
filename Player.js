@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+// もし上記でエラーが出る場合は 'three/addons/controls/PointerLockControls.js' に変更
 
 export class Player {
     constructor(camera, domElement, scene) {

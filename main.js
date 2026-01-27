@@ -1,3 +1,12 @@
+// エラーログの表示
+window.onerror = function (msg, url, lineNo, columnNo, error) {
+    const display = document.getElementById('error-display');
+    if (display) {
+        display.innerHTML += `<div>Error: ${msg} at ${lineNo}:${columnNo}</div>`;
+    }
+    return false;
+};
+
 import * as THREE from 'three';
 import { Player } from './Player.js';
 import { NetworkManager } from './NetworkManager.js';
@@ -31,6 +40,8 @@ function init() {
 
     // カメラの作成
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 1.7, 5); // 初期位置を設定
+    scene.add(camera); // シーンに追加
 
     // レンダラーの作成
     renderer = new THREE.WebGLRenderer({ antialias: true });
