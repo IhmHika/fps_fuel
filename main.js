@@ -15,6 +15,21 @@ window.onerror = (msg, url, line) => {
     return false;
 };
 
+// --- Shortcut Interference Prevention ---
+window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey) {
+        // Block shortcuts that use movement/action keys
+        const blocked = ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyR', 'KeyF', 'KeyT', 'KeyN', 'KeyP'];
+        if (blocked.includes(e.code)) {
+            e.preventDefault();
+        }
+    }
+    // Block Help/Refresh which can be annoying
+    if (e.code === 'F1' || e.code === 'F5') {
+        if (!e.ctrlKey) e.preventDefault();
+    }
+}, { capture: true });
+
 // --- Game Logic ---
 let scene, camera, renderer, clock;
 let player, network;
@@ -210,7 +225,7 @@ function setupUIListeners() {
 
     document.getElementById('btn-random-match').onclick = () => {
         startSession();
-        const lobbyId = "VAL_FUEL_LOBBY";
+        const lobbyId = "VAL_DUEL_LOBBY";
         network.joinRoom("Agent_" + Math.floor(Math.random() * 100), lobbyId, () => {
             statusMsg.innerText = "試合開始";
         });
@@ -250,6 +265,10 @@ function startSession() {
     camera.rotation.set(0, 0, 0);
     if (player.controls) player.controls.lock();
 }
+
+window.onbeforeunload = () => {
+    if (isGameStarted) return "対戦中にページを離れますか？";
+};
 
 function addPracticeTargets() {
     for (let i = 0; i < 12; i++) {
