@@ -15,21 +15,48 @@
 
     <!-- UI レイヤー -->
     <div id="ui-layer">
-        <!-- 初期表示メニュー -->
-        <div id="menu" class="glass">
-            <h1>1v1 FPS</h1>
-            <div class="menu-content">
-                <input type="text" id="peer-id-input" placeholder="Your Name" value="Player1">
-                <button id="btn-practice">練習場 (Practice)</button>
-                <div class="divider"><span>OR</span></div>
-                <button id="btn-random-match">クイックマッチ (Random)</button>
-                <hr>
-                <input type="text" id="target-id-input" placeholder="Direct Join ID (Optional)">
-                <button id="btn-create-room" style="font-size: 0.9rem;">ルーム作成</button>
-                <button id="btn-join-room" style="font-size: 0.9rem;">IDで参加</button>
+        <!-- Valorant-style Top Navigation -->
+        <nav id="top-nav">
+            <div class="nav-logo">1v1 FUEL</div>
+            <div class="nav-links">
+                <button id="nav-home" class="active">ホーム</button>
+                <button id="nav-practice">練習場</button>
+                <button id="nav-match">マッチメイキング</button>
             </div>
-            <p id="status-msg"></p>
+            <div class="player-info">
+                <input type="text" id="peer-id-input" placeholder="エージェント名" value="Player1">
+            </div>
+        </nav>
+
+        <!-- Main Lobby Content -->
+        <div id="lobby-content">
+            <div id="home-panel" class="panel active">
+                <h1 class="valorant-title">燃料を満タンにせよ</h1>
+                <p>APEX風の機動力を駆使し、1v1の戦場を支配しろ。</p>
+                <button id="btn-quick-play" class="btn-primary-val">クイックプレイ</button>
+            </div>
+
+            <div id="match-panel" class="panel">
+                <h2 class="section-title">マッチメイキング</h2>
+                <div class="match-grid">
+                    <div class="match-card">
+                        <h3>ランダムマッチ</h3>
+                        <p>全世界のプレイヤーと対戦</p>
+                        <button id="btn-random-match" class="btn-val">参加する</button>
+                    </div>
+                    <div class="match-card">
+                        <h3>プライベート対戦</h3>
+                        <input type="text" id="target-id-input" placeholder="ルームIDを入力">
+                        <div class="btn-group">
+                            <button id="btn-create-room" class="btn-val">作成</button>
+                            <button id="btn-join-room" class="btn-val-outline">参加</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
+
+        <p id="status-msg"></p>
 
         <!-- ゲーム内HUD -->
         <div id="hud" style="display: none;">

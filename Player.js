@@ -31,32 +31,47 @@ export class Player {
     }
 
     initGun() {
-        // Create a more detailed simple gun
         const gunGroup = new THREE.Group();
 
-        // Body
-        const bodyGeo = new THREE.BoxGeometry(0.12, 0.15, 0.6);
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8, roughness: 0.2 });
+        // Main body (Angular design)
+        const bodyGeo = new THREE.BoxGeometry(0.12, 0.18, 0.7);
+        const bodyMat = new THREE.MeshStandardMaterial({
+            color: 0x0f1923,
+            metalness: 0.9,
+            roughness: 0.1
+        });
         const body = new THREE.Mesh(bodyGeo, bodyMat);
         gunGroup.add(body);
 
         // Grip
-        const gripGeo = new THREE.BoxGeometry(0.1, 0.25, 0.12);
+        const gripGeo = new THREE.BoxGeometry(0.1, 0.3, 0.12);
         const grip = new THREE.Mesh(gripGeo, bodyMat);
-        grip.position.set(0, -0.18, 0.2);
+        grip.position.set(0, -0.2, 0.2);
+        grip.rotation.x = -Math.PI / 10;
         gunGroup.add(grip);
 
-        // Muzzle
-        const muzzleGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.1);
+        // VALORANT Red Line (Emissive)
+        const lineGeo = new THREE.BoxGeometry(0.01, 0.03, 0.4);
+        const lineMat = new THREE.MeshBasicMaterial({ color: 0xff4655 });
+        const line = new THREE.Mesh(lineGeo, lineMat);
+        line.position.set(0.06, 0.05, -0.1);
+        gunGroup.add(line);
+
+        const line2 = line.clone();
+        line2.position.x = -0.06;
+        gunGroup.add(line2);
+
+        // Muzzle Glow
+        const muzzleGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.05);
         const muzzleMat = new THREE.MeshBasicMaterial({ color: 0x00f2ff });
         const muzzle = new THREE.Mesh(muzzleGeo, muzzleMat);
         muzzle.rotation.x = Math.PI / 2;
-        muzzle.position.z = -0.3;
+        muzzle.position.z = -0.35;
         gunGroup.add(muzzle);
 
-        // Handle attachment
+        // Attach to camera
         this.camera.add(gunGroup);
-        gunGroup.position.set(0.35, -0.3, -0.6); // Lower-right position
+        gunGroup.position.set(0.4, -0.4, -0.7);
         this.gun = gunGroup;
     }
 

@@ -2,13 +2,12 @@ import * as THREE from 'three';
 import { Player } from './Player.js';
 import { NetworkManager } from './NetworkManager.js';
 
-// --- Global Error Capture ---
+// --- Error Logger ---
 const reportError = (msg) => {
     const display = document.getElementById('error-display');
     if (display) {
-        display.innerHTML += `<div style="padding:10px; border-bottom:1px solid red; background:rgba(20,0,0,0.8); font-size:12px;">[Error] ${msg}</div>`;
+        display.innerHTML += `<div style="padding:10px; border-bottom:1px solid red; background:rgba(15, 25, 35, 0.9); font-size:12px; color:#ff4655;">[SYSTEM] ${msg}</div>`;
     }
-    console.error(msg);
 };
 
 window.onerror = (msg, url, line) => {
@@ -16,34 +15,40 @@ window.onerror = (msg, url, line) => {
     return false;
 };
 
-// --- Variables ---
+// --- Game Logic ---
 let scene, camera, renderer, clock;
 let player, network;
 let isGameStarted = false;
 
-const menu = document.getElementById('menu');
+// DOM Elements
 const hud = document.getElementById('hud');
 const statusMsg = document.getElementById('status-msg');
+const topNav = document.getElementById('top-nav');
+const lobbyContent = document.getElementById('lobby-content');
 
-function init() {
-    console.log("Game Init Sequence...");
+const navHome = document.getElementById('nav-home');
+const navPractice = document.getElementById('nav-practice');
+const navMatch = document.getElementById('nav-match');
+
+const homePanel = document.getElementById('home-panel');
+const matchPanel = document.getElementById('match-panel');
+
+async function init() {
+    console.log("Initializing Val-Style Game...");
 
     try {
         const container = document.getElementById('game-container');
-        if (!container) throw new Error("#game-container not found");
+        if (!container) throw new Error("Container missing");
 
-        // 1. Scene
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x050510);
-        scene.fog = new THREE.Fog(0x050510, 10, 200);
+        scene.background = new THREE.Color(0x06080a);
+        scene.fog = new THREE.Fog(0x06080a, 20, 150);
 
-        // 2. Camera (Initial Lobby Position)
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-        camera.position.set(30, 30, 30);
+        camera.position.set(20, 20, 20);
         camera.lookAt(0, 5, 0);
-        scene.add(camera); // Required for Gun to be visible (it's attached to camera)
+        scene.add(camera);
 
-        // 3. Renderer
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
@@ -51,52 +56,52 @@ function init() {
 
         clock = new THREE.Clock();
 
-        // 4. Lights
-        const ambient = new THREE.AmbientLight(0xffffff, 1.0);
+        // Environment
+        const ambient = new THREE.AmbientLight(0xffffff, 0.8);
         scene.add(ambient);
 
-        const directional = new THREE.DirectionalLight(0x00f2ff, 1.5);
-        directional.position.set(10, 30, 10);
+        const directional = new THREE.DirectionalLight(0xff4655, 1.2);
+        directional.position.set(15, 30, 10);
         scene.add(directional);
 
-        // 5. Map
-        // Floor
-        const ground = new THREE.Mesh(
-            new THREE.PlaneGeometry(500, 500),
-            new THREE.MeshStandardMaterial({ color: 0x111122, roughness: 0.8, metalness: 0.2 })
-        );
+        // Ground (Valorant style grid)
+        const groundGeo = new THREE.PlaneGeometry(500, 500);
+        const groundMat = new THREE.MeshStandardMaterial({
+            color: 0x10151a,
+            roughness: 0.9,
+            metalness: 0.1
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
         scene.add(ground);
 
-        // Grid
-        const grid = new THREE.GridHelper(200, 40, 0x00f2ff, 0x111111);
-        grid.position.y = 0.01;
+        const grid = new THREE.GridHelper(200, 40, 0xff4655, 0x1a1a1a);
+        grid.position.y = 0.02;
         scene.add(grid);
 
-        // Obstacles
-        addObstacle(0, 2, -10, 10, 4, 3);
-        addObstacle(15, 3, 5, 5, 6, 5);
-        addObstacle(-15, 2, -5, 6, 4, 8);
+        // Map obstacles (Abstract shapes)
+        addObstacle(10, 5, -10, 4, 10, 4);
+        addObstacle(-15, 2, 5, 6, 4, 10);
+        addObstacle(0, 3, -15, 8, 6, 2);
 
-        // 6. Components
+        // Player & Network
         player = new Player(camera, renderer.domElement, scene);
         network = new NetworkManager(scene, player);
         player.network = network;
 
         window.addEventListener('resize', onWindowResize);
 
-        // 7. Start Loop
+        setupUIListeners();
         animate();
-        console.log("Game Ready!");
 
     } catch (e) {
-        reportError("Initialization Failed: " + e.message);
+        reportError("Init Fail: " + e.message);
     }
 }
 
 function addObstacle(x, y, z, sx, sy, sz) {
     const geo = new THREE.BoxGeometry(sx, sy, sz);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x222233 });
+    const mat = new THREE.MeshStandardMaterial({ color: 0x1f2326, emissive: 0xff4655, emissiveIntensity: 0.1 });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x, y, z);
     scene.add(mesh);
@@ -115,79 +120,98 @@ function animate() {
     if (isGameStarted) {
         player.update(delta);
     } else {
-        // Lobby Camera: Dramatic rotation
-        const time = Date.now() * 0.0003;
-        const radius = 40;
-        camera.position.x = Math.sin(time) * radius;
-        camera.position.z = Math.cos(time) * radius;
-        camera.position.y = 20 + Math.sin(time * 0.5) * 5;
+        // Dramatic Lobby Camera
+        const time = Date.now() * 0.0004;
+        camera.position.x = Math.sin(time) * 35;
+        camera.position.z = Math.cos(time) * 35;
+        camera.position.y = 15 + Math.sin(time * 0.5) * 5;
         camera.lookAt(0, 5, 0);
     }
 
     renderer.render(scene, camera);
 }
 
-// --- Menu Actions ---
+// --- UI Logic ---
+function setupUIListeners() {
+    const switchPanel = (panelId) => {
+        [homePanel, matchPanel].forEach(p => p.classList.remove('active'));
+        [navHome, navPractice, navMatch].forEach(b => b.classList.remove('active'));
+
+        if (panelId === 'home') {
+            homePanel.classList.add('active');
+            navHome.classList.add('active');
+        } else if (panelId === 'match') {
+            matchPanel.classList.add('active');
+            navMatch.classList.add('active');
+        }
+    };
+
+    navHome.onclick = () => switchPanel('home');
+    navMatch.onclick = () => switchPanel('match');
+
+    navPractice.onclick = () => {
+        startSession();
+        addPracticeTargets();
+    };
+
+    document.getElementById('btn-quick-play').onclick = () => {
+        switchPanel('match');
+    };
+
+    document.getElementById('btn-random-match').onclick = () => {
+        startSession();
+        const lobbyId = "VAL_FUEL_LOBBY";
+        network.joinRoom("Agent_" + Math.floor(Math.random() * 100), lobbyId, () => {
+            statusMsg.innerText = "試合開始";
+        });
+        setTimeout(() => {
+            if (!network.conn) network.createRoom(lobbyId, () => {
+                statusMsg.innerText = "対戦相手待機中...";
+            });
+        }, 3000);
+    };
+
+    document.getElementById('btn-create-room').onclick = () => {
+        const id = document.getElementById('target-id-input').value || "ROOM_" + Math.floor(Math.random() * 1000);
+        startSession();
+        network.createRoom(id, (myId) => {
+            statusMsg.innerText = "ルーム作成完了: " + myId;
+        });
+    };
+
+    document.getElementById('btn-join-room').onclick = () => {
+        const id = document.getElementById('target-id-input').value;
+        if (!id) return statusMsg.innerText = "IDを入力してください";
+        startSession();
+        network.joinRoom("Challenger", id, () => {
+            statusMsg.innerText = "接続完了";
+        });
+    };
+}
+
 function startSession() {
     isGameStarted = true;
-    menu.style.display = 'none';
+    topNav.style.display = 'none';
+    lobbyContent.style.display = 'none';
     hud.style.display = 'block';
 
-    // FPS View Transition
+    // Switch to FPS view
     camera.position.set(0, 1.7, 0);
     camera.rotation.set(0, 0, 0);
     if (player.controls) player.controls.lock();
 }
 
-document.getElementById('btn-practice').onclick = () => {
-    startSession();
-    statusMsg.innerText = "Practice Mode";
-
-    // Add dummy targets
-    for (let i = 0; i < 10; i++) {
+function addPracticeTargets() {
+    for (let i = 0; i < 12; i++) {
         const target = new THREE.Mesh(
             new THREE.CylinderGeometry(0.5, 0.5, 2, 8),
-            new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xff5500, emissiveIntensity: 0.3 })
+            new THREE.MeshStandardMaterial({ color: 0xff4655, emissive: 0xff4655, emissiveIntensity: 0.5 })
         );
-        target.position.set((Math.random() - 0.5) * 50, 1, -15 - Math.random() * 30);
+        target.position.set((Math.random() - 0.5) * 60, 1, -20 - Math.random() * 40);
         target.userData.isTarget = true;
         target.userData.health = 100;
         scene.add(target);
     }
-};
-
-document.getElementById('btn-random-match').onclick = () => {
-    statusMsg.innerText = "Searching for match...";
-    startSession();
-    const myId = "Player_" + Math.floor(Math.random() * 1000);
-    const lobbyId = "PUBLIC_FPS_LOBBY";
-    network.joinRoom(myId, lobbyId, () => {
-        statusMsg.innerText = "Matched! Ready.";
-    });
-    setTimeout(() => {
-        if (!network.conn) {
-            network.createRoom(lobbyId, () => {
-                statusMsg.innerText = "Hosting... Waiting for player.";
-            });
-        }
-    }, 4000);
-};
-
-document.getElementById('btn-create-room').onclick = () => {
-    const id = document.getElementById('peer-id-input').value;
-    startSession();
-    network.createRoom(id, (myId) => {
-        statusMsg.innerText = "Room Created: " + myId;
-    });
-};
-
-document.getElementById('btn-join-room').onclick = () => {
-    const targetId = document.getElementById('target-id-input').value;
-    if (!targetId) return statusMsg.innerText = "Please enter Join ID";
-    startSession();
-    network.joinRoom("Challenger", targetId, () => {
-        statusMsg.innerText = "Connected!";
-    });
-};
+}
 
 init();
