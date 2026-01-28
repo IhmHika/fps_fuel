@@ -7,13 +7,13 @@ export class Player {
         this.scene = scene;
         this.controls = new PointerLockControls(camera, domElement);
 
-        // Movement Settings (Non-smooth Kirka.io reproduction)
-        this.velocity = new THREE.Vector3();
+        // Movement Settings (Non-smooth Kirka.io style)
+        this.velocity = new THREE.Vector3(0, 0, 0);
         this.direction = new THREE.Vector3();
         this.moveSpeed = 16.0;
-        this.jumpForce = 45.0;    // Adjusted for 120 gravity
-        this.gravity = 120.0;     // Strong gravity for snappy landings
-        this.friction = 12.0;     // High but stable friction
+        this.jumpForce = 56.0;    // High force for high gravity
+        this.gravity = 180.0;     // Very high gravity for heavy/snappy feel
+        this.friction = 15.0;     // Stable high friction
 
         // States
         this.onGround = false;
@@ -117,27 +117,33 @@ export class Player {
         }
         if (this.gun) this.gun.visible = true;
 
-        // Apply Gravity
-        this.velocity.y -= this.gravity * delta;
+        // 1. Vertical Physics (Gravity & Jump)
+        if (this.onGround) {
+            this.velocity.y = 0;
+            if (this.keys.jump) {
+                this.velocity.y = this.jumpForce;
+                this.onGround = false;
+            }
+        } else {
+            this.velocity.y -= this.gravity * delta;
+        }
 
-        // Movement Direction
+        // 2. Horizontal Direction & Crouching
         this.direction.z = Number(this.keys.forward) - Number(this.keys.backward);
         this.direction.x = Number(this.keys.right) - Number(this.keys.left);
         this.direction.normalize();
 
-        // Crouching Logic
         const headHeight = 1.7;
         const crouchHeight = 1.0;
         const targetHeight = this.keys.shift ? crouchHeight : headHeight;
         this.isCrouching = this.keys.shift;
 
-        // Apply Friction (Ground ONLY)
+        // 3. Horizontal Movement (XZ ONLY)
+        const currentXZ = new THREE.Vector2(this.velocity.x, this.velocity.z);
+
+        // Apply Friction on ground
         if (this.onGround) {
-            const horizontalVel = new THREE.Vector3(this.velocity.x, 0, this.velocity.z);
-            // Stable friction calculation
-            horizontalVel.multiplyScalar(Math.max(0, 1 - this.friction * delta));
-            this.velocity.x = horizontalVel.x;
-            this.velocity.z = horizontalVel.z;
+            currentXZ.multiplyScalar(Math.max(0, 1 - this.friction * delta));
         }
 
         // Acceleration
@@ -146,42 +152,34 @@ export class Player {
             this.camera.getWorldDirection(camDir);
             camDir.y = 0;
             camDir.normalize();
-
             const camSide = new THREE.Vector3().crossVectors(this.camera.up, camDir).normalize();
 
-            // Defined accel for Kirka-style responsiveness
-            const accel = 800;
-            if (this.isCrouching) accel *= 0.5;
+            const accel = 300;
+            const moveDir = new THREE.Vector3()
+                .addScaledVector(camDir, this.direction.z)
+                .addScaledVector(camSide, -this.direction.x)
+                .normalize();
 
-            this.velocity.addScaledVector(camDir, this.direction.z * accel * delta);
-            this.velocity.addScaledVector(camSide, -this.direction.x * accel * delta);
+            currentXZ.x += moveDir.x * accel * delta;
+            currentXZ.y += moveDir.z * accel * delta; // Vector2.y is Z axis here
         }
 
-        // --- FIXED VELOCITY CAPPING ---
-        // Separate horizontal component to avoid capping jump velocity (Y)
-        const horizontalVel = new THREE.Vector2(this.velocity.x, this.velocity.z);
+        // 4. Horizontal Speed Cap (Strict XZ)
         let maxSpeed = this.isCrouching ? this.moveSpeed * 0.5 : this.moveSpeed;
-
-        // Slightly faster in air (Kirka style)
         if (!this.onGround) maxSpeed *= 1.1;
 
-        if (horizontalVel.length() > maxSpeed) {
-            horizontalVel.setLength(maxSpeed);
-            this.velocity.x = horizontalVel.x;
-            this.velocity.z = horizontalVel.z;
-        }
-        // ------------------------------
-
-        // Jump
-        if (this.keys.jump && this.onGround) {
-            this.velocity.y = this.jumpForce;
-            this.onGround = false;
+        if (currentXZ.length() > maxSpeed) {
+            currentXZ.setLength(maxSpeed);
         }
 
-        // Apply Velocity & Floor Collision
+        // Restore velocity from XZ components (preserving Y)
+        this.velocity.x = currentXZ.x;
+        this.velocity.z = currentXZ.y;
+
+        // 5. Apply Movement & Collision
         const nextPos = this.camera.position.clone().addScaledVector(this.velocity, delta);
 
-        // World Boundaries (100 units from origin)
+        // World Bounds
         const dist = Math.sqrt(nextPos.x * nextPos.x + nextPos.z * nextPos.z);
         if (dist > 100) {
             const angle = Math.atan2(nextPos.z, nextPos.x);
@@ -189,18 +187,20 @@ export class Player {
             nextPos.z = Math.sin(angle) * 100;
         }
 
-        if (nextPos.y < targetHeight - 0.05) { // Add small margin to prevent flickering
+        // Floor Collision Logic (Robust)
+        if (nextPos.y <= targetHeight) {
             nextPos.y = targetHeight;
-            this.velocity.y = 0;
+            if (this.velocity.y < 0) this.velocity.y = 0;
             this.onGround = true;
         } else {
-            this.onGround = false;
+            // Generous check for "on ground" to avoid flickering when gravity is slight
+            this.onGround = (this.camera.position.y <= targetHeight + 0.001 && this.velocity.y <= 0);
         }
 
-        // Instant height transition (Minecraft style)
-        this.camera.position.y = nextPos.y;
+        // Apply final position (Instant eye height for Minecraft style)
         this.camera.position.x = nextPos.x;
         this.camera.position.z = nextPos.z;
+        this.camera.position.y = nextPos.y;
     }
 
     shoot() {
