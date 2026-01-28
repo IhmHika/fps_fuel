@@ -137,11 +137,11 @@ export class Player {
             if (!this.isCrouching) {
                 // Trigger Slide if moving fast enough on ground
                 const horizontalSpeed = Math.sqrt(this.velocity.x ** 2 + this.velocity.z ** 2);
-                if (this.onGround && horizontalSpeed > 10 && !this.isSliding) {
+                if (this.onGround && horizontalSpeed > 12 && !this.isSliding) {
                     this.isSliding = true;
-                    this.slideTimer = 0.8; // Slide for 0.8 seconds
+                    this.slideTimer = 0.5; // Sharper slide for Kirka.io
                     this.slideDirection.set(this.velocity.x, 0, this.velocity.z).normalize();
-                    this.velocity.addScaledVector(this.slideDirection, 15); // Initial slide boost
+                    this.velocity.addScaledVector(this.slideDirection, 18); // Stronger initial boost
                 }
                 this.isCrouching = true;
             }
@@ -157,8 +157,8 @@ export class Player {
             if (this.slideTimer <= 0) {
                 this.isSliding = false;
             } else {
-                // Maintain slide velocity with low friction
-                this.velocity.addScaledVector(this.slideDirection, 20 * delta);
+                // Low-drag slide
+                this.velocity.addScaledVector(this.slideDirection, 35 * delta);
             }
         }
 
@@ -166,7 +166,7 @@ export class Player {
         if (this.onGround) {
             const horizontalVel = new THREE.Vector3(this.velocity.x, 0, this.velocity.z);
             let frictionFactor = this.friction;
-            if (this.isSliding) frictionFactor = 1.0; // Very low friction while sliding
+            if (this.isSliding) frictionFactor = 0.5; // Almost no friction while sliding
 
             horizontalVel.multiplyScalar(1 - frictionFactor * delta);
             this.velocity.x = horizontalVel.x;
@@ -183,8 +183,8 @@ export class Player {
             const camSide = new THREE.Vector3().crossVectors(this.camera.up, camDir).normalize();
 
             // Air Control & Ground Speed
-            let accel = this.onGround ? 120 : 60; // Increased air control
-            if (this.isCrouching && !this.isSliding) accel *= 0.5; // Slower when crouching
+            let accel = this.onGround ? 160 : 100; // Snappy acceleration and high air control
+            if (this.isCrouching && !this.isSliding) accel *= 0.4; // Slower crouch walk
 
             this.velocity.addScaledVector(camDir, this.direction.z * accel * delta);
             this.velocity.addScaledVector(camSide, -this.direction.x * accel * delta);
