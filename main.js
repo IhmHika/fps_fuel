@@ -18,14 +18,26 @@ window.onerror = (msg, url, line) => {
 window.addEventListener('keydown', (e) => {
     // Specifically block common browser shortcuts during matches
     if (isGameStarted || e.ctrlKey) {
-        // Block movement interfering combos
-        const blockedCodes = ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyR', 'KeyF', 'KeyT', 'KeyN', 'KeyP', 'KeyS', 'KeyH'];
-        if (e.ctrlKey && blockedCodes.includes(e.code)) {
+        // Block movement interfering combos and common tab/window management
+        const blockedCodes = [
+            'KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyR', 'KeyF', 'KeyG', 'KeyT',
+            'KeyN', 'KeyP', 'KeyS', 'KeyH', 'KeyJ', 'KeyL', 'KeyO'
+        ];
+
+        // Ctrl + blocked key or Ctrl+Shift + key
+        if (e.ctrlKey && (blockedCodes.includes(e.code) || e.shiftKey)) {
             e.preventDefault();
             e.stopImmediatePropagation();
         }
+
+        // Specifically block Ctrl + Tab, Ctrl + Shift + Tab
+        if (e.ctrlKey && e.code === 'Tab') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }
+
         // Block F-keys
-        if (['F1', 'F3', 'F5', 'F6', 'F11', 'F12'].includes(e.code) && !e.ctrlKey) {
+        if (/^F\d+$/.test(e.code) && !e.ctrlKey) {
             e.preventDefault();
             e.stopImmediatePropagation();
         }

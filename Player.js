@@ -17,8 +17,12 @@ export class Player {
 
         // States
         this.onGround = false;
-        this.isActive = false; // Added to control lobby vs game interaction
-        this.keys = { forward: false, backward: false, left: false, right: false, jump: false, shoot: false };
+        this.isCrouching = false;
+        this.isSliding = false;
+        this.slideTimer = 0;
+        this.slideDirection = new THREE.Vector3();
+        this.isActive = false;
+        this.keys = { forward: false, backward: false, left: false, right: false, jump: false, shift: false };
         this.network = null;
 
         // Gun Setup (Visual)
@@ -104,6 +108,8 @@ export class Player {
             case 'KeyA': this.keys.left = isDown; break;
             case 'KeyD': this.keys.right = isDown; break;
             case 'Space': this.keys.jump = isDown; break;
+            case 'ShiftLeft':
+            case 'ShiftRight': this.keys.shift = isDown; break;
         }
     }
 
@@ -122,10 +128,47 @@ export class Player {
         this.direction.x = Number(this.keys.right) - Number(this.keys.left);
         this.direction.normalize();
 
-        // Apply Friction (Ground ONLY for momentum)
+        // Crouching & Sliding Logic
+        const headHeight = 1.7;
+        const crouchHeight = 1.0;
+        let targetHeight = headHeight;
+
+        if (this.keys.shift) {
+            if (!this.isCrouching) {
+                // Trigger Slide if moving fast enough on ground
+                const horizontalSpeed = Math.sqrt(this.velocity.x ** 2 + this.velocity.z ** 2);
+                if (this.onGround && horizontalSpeed > 10 && !this.isSliding) {
+                    this.isSliding = true;
+                    this.slideTimer = 0.8; // Slide for 0.8 seconds
+                    this.slideDirection.set(this.velocity.x, 0, this.velocity.z).normalize();
+                    this.velocity.addScaledVector(this.slideDirection, 15); // Initial slide boost
+                }
+                this.isCrouching = true;
+            }
+            targetHeight = crouchHeight;
+        } else {
+            this.isCrouching = false;
+            this.isSliding = false;
+        }
+
+        // Sliding update
+        if (this.isSliding) {
+            this.slideTimer -= delta;
+            if (this.slideTimer <= 0) {
+                this.isSliding = false;
+            } else {
+                // Maintain slide velocity with low friction
+                this.velocity.addScaledVector(this.slideDirection, 20 * delta);
+            }
+        }
+
+        // Apply Friction (Adjusted for Slide and Jump)
         if (this.onGround) {
             const horizontalVel = new THREE.Vector3(this.velocity.x, 0, this.velocity.z);
-            horizontalVel.multiplyScalar(1 - this.friction * delta);
+            let frictionFactor = this.friction;
+            if (this.isSliding) frictionFactor = 1.0; // Very low friction while sliding
+
+            horizontalVel.multiplyScalar(1 - frictionFactor * delta);
             this.velocity.x = horizontalVel.x;
             this.velocity.z = horizontalVel.z;
         }
@@ -139,7 +182,10 @@ export class Player {
 
             const camSide = new THREE.Vector3().crossVectors(this.camera.up, camDir).normalize();
 
-            const accel = this.onGround ? 120 : 30; // Slightly faster for Apex feel
+            // Air Control & Ground Speed
+            let accel = this.onGround ? 120 : 60; // Increased air control
+            if (this.isCrouching && !this.isSliding) accel *= 0.5; // Slower when crouching
+
             this.velocity.addScaledVector(camDir, this.direction.z * accel * delta);
             this.velocity.addScaledVector(camSide, -this.direction.x * accel * delta);
         }
@@ -148,6 +194,7 @@ export class Player {
         if (this.keys.jump && this.onGround) {
             this.velocity.y = this.jumpForce;
             this.onGround = false;
+            this.isSliding = false; // Jump cancels slide but preserves velocity
         }
 
         // Apply Velocity & Floor Collision
@@ -161,14 +208,18 @@ export class Player {
             nextPos.z = Math.sin(angle) * 100;
         }
 
-        if (nextPos.y < 1.7) {
-            nextPos.y = 1.7;
+        if (nextPos.y < targetHeight) {
+            nextPos.y = targetHeight;
             this.velocity.y = 0;
             this.onGround = true;
         } else {
             this.onGround = false;
         }
-        this.camera.position.copy(nextPos);
+
+        // Smooth height transition
+        this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, nextPos.y, 0.2);
+        this.camera.position.x = nextPos.x;
+        this.camera.position.z = nextPos.z;
     }
 
     shoot() {
