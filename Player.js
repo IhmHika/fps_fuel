@@ -7,13 +7,13 @@ export class Player {
         this.scene = scene;
         this.controls = new PointerLockControls(camera, domElement);
 
-        // Movement Settings
+        // Movement Settings (Kirka.io inspired)
         this.velocity = new THREE.Vector3();
         this.direction = new THREE.Vector3();
-        this.moveSpeed = 16.0;
-        this.jumpForce = 12.0;
-        this.gravity = 32.0;
-        this.friction = 8.0;
+        this.moveSpeed = 22.0;    // Increased from 16
+        this.jumpForce = 13.5;    // Increased from 12
+        this.gravity = 36.0;      // Slightly heavier gravity
+        this.friction = 7.0;      // Reduced slightly for smoother feel
 
         // States
         this.onGround = false;
