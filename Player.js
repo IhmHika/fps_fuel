@@ -10,7 +10,7 @@ export class Player {
         // Movement Settings (Kirka.io inspired)
         this.velocity = new THREE.Vector3();
         this.direction = new THREE.Vector3();
-        this.moveSpeed = 22.0;    // Increased from 16
+        this.moveSpeed = 18.0;    // Reduced from 22 for better control
         this.jumpForce = 13.5;    // Increased from 12
         this.gravity = 36.0;      // Slightly heavier gravity
         this.friction = 7.0;      // Reduced slightly for smoother feel
@@ -216,8 +216,8 @@ export class Player {
             this.onGround = false;
         }
 
-        // Smooth height transition
-        this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, nextPos.y, 0.2);
+        // Instant height transition (Minecraft style)
+        this.camera.position.y = nextPos.y;
         this.camera.position.x = nextPos.x;
         this.camera.position.z = nextPos.z;
     }
