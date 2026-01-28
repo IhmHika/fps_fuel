@@ -11,9 +11,9 @@ export class Player {
         this.velocity = new THREE.Vector3();
         this.direction = new THREE.Vector3();
         this.moveSpeed = 16.0;
-        this.jumpForce = 14.5;    // Balanced for Kirka.io feel
-        this.gravity = 45.0;      // Heavier gravity for snappier landings
-        this.friction = 100.0;    // Absolute friction for instant stop
+        this.jumpForce = 35.0;    // Significally increased
+        this.gravity = 80.0;      // Extreme gravity for snappier landings
+        this.friction = 100.0;    // Absolute friction
 
         // States
         this.onGround = false;
@@ -131,10 +131,10 @@ export class Player {
         const targetHeight = this.keys.shift ? crouchHeight : headHeight;
         this.isCrouching = this.keys.shift;
 
-        // Apply Friction (Ground ONLY, very minimal to maintain velocity)
+        // Apply Friction (Ground ONLY, protected against delta-induced overflow)
         if (this.onGround) {
             const horizontalVel = new THREE.Vector3(this.velocity.x, 0, this.velocity.z);
-            horizontalVel.multiplyScalar(1 - this.friction * delta);
+            horizontalVel.multiplyScalar(Math.max(0, 1 - this.friction * delta));
             this.velocity.x = horizontalVel.x;
             this.velocity.z = horizontalVel.z;
         }
@@ -148,19 +148,28 @@ export class Player {
 
             const camSide = new THREE.Vector3().crossVectors(this.camera.up, camDir).normalize();
 
-            // Extreme acceleration for instant response (both ground and air)
-            let accel = 1000;
+            // Defined accel for Kirka-style responsiveness
+            const accel = 800;
             if (this.isCrouching) accel *= 0.5;
 
             this.velocity.addScaledVector(camDir, this.direction.z * accel * delta);
             this.velocity.addScaledVector(camSide, -this.direction.x * accel * delta);
-
-            // Cap speed immediately for "non-smooth" feel
-            const speed = this.isCrouching ? this.moveSpeed * 0.5 : this.moveSpeed;
-            if (this.velocity.length() > speed) {
-                this.velocity.setLength(speed);
-            }
         }
+
+        // --- FIXED VELOCITY CAPPING ---
+        // Separate horizontal component to avoid capping jump velocity (Y)
+        const horizontalVel = new THREE.Vector2(this.velocity.x, this.velocity.z);
+        let maxSpeed = this.isCrouching ? this.moveSpeed * 0.5 : this.moveSpeed;
+
+        // Slightly faster in air (Kirka style)
+        if (!this.onGround) maxSpeed *= 1.1;
+
+        if (horizontalVel.length() > maxSpeed) {
+            horizontalVel.setLength(maxSpeed);
+            this.velocity.x = horizontalVel.x;
+            this.velocity.z = horizontalVel.z;
+        }
+        // ------------------------------
 
         // Jump
         if (this.keys.jump && this.onGround) {
