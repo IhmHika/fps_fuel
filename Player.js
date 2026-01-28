@@ -11,9 +11,9 @@ export class Player {
         this.velocity = new THREE.Vector3();
         this.direction = new THREE.Vector3();
         this.moveSpeed = 16.0;
-        this.jumpForce = 35.0;    // Significally increased
-        this.gravity = 80.0;      // Extreme gravity for snappier landings
-        this.friction = 100.0;    // Absolute friction
+        this.jumpForce = 45.0;    // Adjusted for 120 gravity
+        this.gravity = 120.0;     // Strong gravity for snappy landings
+        this.friction = 12.0;     // High but stable friction
 
         // States
         this.onGround = false;
@@ -131,9 +131,10 @@ export class Player {
         const targetHeight = this.keys.shift ? crouchHeight : headHeight;
         this.isCrouching = this.keys.shift;
 
-        // Apply Friction (Ground ONLY, protected against delta-induced overflow)
+        // Apply Friction (Ground ONLY)
         if (this.onGround) {
             const horizontalVel = new THREE.Vector3(this.velocity.x, 0, this.velocity.z);
+            // Stable friction calculation
             horizontalVel.multiplyScalar(Math.max(0, 1 - this.friction * delta));
             this.velocity.x = horizontalVel.x;
             this.velocity.z = horizontalVel.z;
@@ -188,7 +189,7 @@ export class Player {
             nextPos.z = Math.sin(angle) * 100;
         }
 
-        if (nextPos.y < targetHeight) {
+        if (nextPos.y < targetHeight - 0.05) { // Add small margin to prevent flickering
             nextPos.y = targetHeight;
             this.velocity.y = 0;
             this.onGround = true;
