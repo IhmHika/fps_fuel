@@ -7,20 +7,17 @@ export class Player {
         this.scene = scene;
         this.controls = new PointerLockControls(camera, domElement);
 
-        // Movement Settings (Kirka.io inspired)
+        // Movement Settings (Non-smooth Kirka.io reproduction)
         this.velocity = new THREE.Vector3();
         this.direction = new THREE.Vector3();
-        this.moveSpeed = 18.0;    // Reduced from 22 for better control
-        this.jumpForce = 13.5;    // Increased from 12
-        this.gravity = 36.0;      // Slightly heavier gravity
-        this.friction = 7.0;      // Reduced slightly for smoother feel
+        this.moveSpeed = 16.0;
+        this.jumpForce = 14.5;    // Balanced for Kirka.io feel
+        this.gravity = 45.0;      // Heavier gravity for snappier landings
+        this.friction = 100.0;    // Absolute friction for instant stop
 
         // States
         this.onGround = false;
         this.isCrouching = false;
-        this.isSliding = false;
-        this.slideTimer = 0;
-        this.slideDirection = new THREE.Vector3();
         this.isActive = false;
         this.keys = { forward: false, backward: false, left: false, right: false, jump: false, shift: false };
         this.network = null;
@@ -128,47 +125,16 @@ export class Player {
         this.direction.x = Number(this.keys.right) - Number(this.keys.left);
         this.direction.normalize();
 
-        // Crouching & Sliding Logic
+        // Crouching Logic
         const headHeight = 1.7;
         const crouchHeight = 1.0;
-        let targetHeight = headHeight;
+        const targetHeight = this.keys.shift ? crouchHeight : headHeight;
+        this.isCrouching = this.keys.shift;
 
-        if (this.keys.shift) {
-            if (!this.isCrouching) {
-                // Trigger Slide if moving fast enough on ground
-                const horizontalSpeed = Math.sqrt(this.velocity.x ** 2 + this.velocity.z ** 2);
-                if (this.onGround && horizontalSpeed > 12 && !this.isSliding) {
-                    this.isSliding = true;
-                    this.slideTimer = 0.5; // Sharper slide for Kirka.io
-                    this.slideDirection.set(this.velocity.x, 0, this.velocity.z).normalize();
-                    this.velocity.addScaledVector(this.slideDirection, 18); // Stronger initial boost
-                }
-                this.isCrouching = true;
-            }
-            targetHeight = crouchHeight;
-        } else {
-            this.isCrouching = false;
-            this.isSliding = false;
-        }
-
-        // Sliding update
-        if (this.isSliding) {
-            this.slideTimer -= delta;
-            if (this.slideTimer <= 0) {
-                this.isSliding = false;
-            } else {
-                // Low-drag slide
-                this.velocity.addScaledVector(this.slideDirection, 35 * delta);
-            }
-        }
-
-        // Apply Friction (Adjusted for Slide and Jump)
+        // Apply Friction (Ground ONLY, very minimal to maintain velocity)
         if (this.onGround) {
             const horizontalVel = new THREE.Vector3(this.velocity.x, 0, this.velocity.z);
-            let frictionFactor = this.friction;
-            if (this.isSliding) frictionFactor = 0.5; // Almost no friction while sliding
-
-            horizontalVel.multiplyScalar(1 - frictionFactor * delta);
+            horizontalVel.multiplyScalar(1 - this.friction * delta);
             this.velocity.x = horizontalVel.x;
             this.velocity.z = horizontalVel.z;
         }
@@ -182,19 +148,24 @@ export class Player {
 
             const camSide = new THREE.Vector3().crossVectors(this.camera.up, camDir).normalize();
 
-            // Air Control & Ground Speed
-            let accel = this.onGround ? 160 : 100; // Snappy acceleration and high air control
-            if (this.isCrouching && !this.isSliding) accel *= 0.4; // Slower crouch walk
+            // Extreme acceleration for instant response (both ground and air)
+            let accel = 1000;
+            if (this.isCrouching) accel *= 0.5;
 
             this.velocity.addScaledVector(camDir, this.direction.z * accel * delta);
             this.velocity.addScaledVector(camSide, -this.direction.x * accel * delta);
+
+            // Cap speed immediately for "non-smooth" feel
+            const speed = this.isCrouching ? this.moveSpeed * 0.5 : this.moveSpeed;
+            if (this.velocity.length() > speed) {
+                this.velocity.setLength(speed);
+            }
         }
 
         // Jump
         if (this.keys.jump && this.onGround) {
             this.velocity.y = this.jumpForce;
             this.onGround = false;
-            this.isSliding = false; // Jump cancels slide but preserves velocity
         }
 
         // Apply Velocity & Floor Collision
