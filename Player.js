@@ -151,17 +151,26 @@ export class Player {
             const camDir = new THREE.Vector3();
             this.camera.getWorldDirection(camDir);
             camDir.y = 0;
-            camDir.normalize();
-            const camSide = new THREE.Vector3().crossVectors(this.camera.up, camDir).normalize();
 
-            const accel = 300;
-            const moveDir = new THREE.Vector3()
-                .addScaledVector(camDir, this.direction.z)
-                .addScaledVector(camSide, -this.direction.x)
-                .normalize();
+            // Safety: Avoid NaN if looking straight up/down
+            if (camDir.lengthSq() > 0.00001) {
+                camDir.normalize();
+                const camSide = new THREE.Vector3().crossVectors(this.camera.up, camDir);
 
-            currentXZ.x += moveDir.x * accel * delta;
-            currentXZ.y += moveDir.z * accel * delta; // Vector2.y is Z axis here
+                if (camSide.lengthSq() > 0.00001) {
+                    camSide.normalize();
+                    const accel = 300;
+                    const moveDir = new THREE.Vector3()
+                        .addScaledVector(camDir, this.direction.z)
+                        .addScaledVector(camSide, -this.direction.x);
+
+                    if (moveDir.lengthSq() > 0.00001) {
+                        moveDir.normalize();
+                        currentXZ.x += moveDir.x * accel * delta;
+                        currentXZ.y += moveDir.z * accel * delta;
+                    }
+                }
+            }
         }
 
         // 4. Horizontal Speed Cap (Strict XZ)
@@ -188,13 +197,19 @@ export class Player {
         }
 
         // Floor Collision Logic (Robust)
-        if (nextPos.y <= targetHeight) {
+        if (nextPos.y <= targetHeight + 0.001) {
             nextPos.y = targetHeight;
             if (this.velocity.y < 0) this.velocity.y = 0;
             this.onGround = true;
         } else {
-            // Generous check for "on ground" to avoid flickering when gravity is slight
-            this.onGround = (this.camera.position.y <= targetHeight + 0.001 && this.velocity.y <= 0);
+            this.onGround = false;
+        }
+
+        // Final NaN Protection - Emergency Reset
+        if (isNaN(nextPos.x) || isNaN(nextPos.y) || isNaN(nextPos.z)) {
+            console.error("Movement NaN detected! Resetting position...");
+            nextPos.set(0, headHeight, 0);
+            this.velocity.set(0, 0, 0);
         }
 
         // Apply final position (Instant eye height for Minecraft style)
